@@ -6,17 +6,21 @@ import { clientIp, rateLimit, TOO_MANY } from "@/lib/rate-limit";
 import { sendContactNotification } from "@/lib/email";
 import { randomBytes } from "node:crypto";
 import {
-  PIECE_TYPES,
-  FINISHES,
-  BUDGETS,
+  CUSTOM_VALIDATORS,
   MAX_REFERENCE_PHOTOS,
   MAX_REFERENCE_BYTES,
   REFERENCE_PHOTOS_HEADING,
 } from "@/lib/custom-request";
 import { saveUpload, sniffImage, type ImageExt } from "@/lib/uploads";
-import { emailError } from "@/lib/auth-rules";
+import { emailError, normalizePhone } from "@/lib/auth-rules";
 
-export type InboundState = { ok?: boolean; error?: string; values?: Record<string, string> };
+export type InboundState = {
+  ok?: boolean;
+  error?: string;
+  /** Fields the server rejected (the form marks them red). */
+  fields?: string[];
+  values?: Record<string, string>;
+};
 
 const contactSchema = z.object({
   name: z.string().trim().min(2, "Please enter your name").max(120),
@@ -80,30 +84,18 @@ async function saveContact(_prev: InboundState, formData: FormData): Promise<Inb
 // ---------- Custom design request (Custom page) ----------
 // Saved as a ContactMessage with topic "custom" so it shows in Admin → Messages.
 
-const customSchema = z.object({
-  name: z.string().trim().min(2, "Please enter your name").max(120),
-  email: z.string().trim().superRefine((v, ctx) => {
-    const err = emailError(v);
-    if (err) ctx.addIssue({ code: "custom", message: err });
-  }),
-  phone: z.string().trim().min(7, "Enter a phone / WhatsApp number so we can discuss your design").max(30),
-  pieceType: z.enum(PIECE_TYPES, { message: "Choose what you'd like us to make" }),
-  finish: z.enum(FINISHES, { message: "Choose a finish" }),
-  budget: z.enum(BUDGETS, { message: "Choose a budget" }),
-  neededBy: z.string().trim().max(60).optional(),
-  details: z.string().trim().min(10, "Tell us a little about your design (at least a sentence)").max(3000),
-});
-
-const CUSTOM_FIELDS = ["name", "email", "phone", "pieceType", "finish", "budget", "neededBy", "details"];
+const CUSTOM_FIELDS = Object.keys(CUSTOM_VALIDATORS);
 
 export async function sendCustomRequest(_prev: InboundState, formData: FormData): Promise<InboundState> {
   const values = Object.fromEntries(CUSTOM_FIELDS.map((k) => [k, String(formData.get(k) ?? "")]));
   if (String(formData.get("website") ?? "")) return { ok: true }; // honeypot
   if (!rateLimit(`custom:${await clientIp()}`, 5, 30 * 60_000)) return { error: TOO_MANY, values };
 
-  const parsed = customSchema.safeParse({ ...values, neededBy: values.neededBy || undefined });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message, values };
-  const d = parsed.data;
+  // The same rules the form checks live — enforced here for anyone skipping the browser.
+  const bad = CUSTOM_FIELDS.filter((k) => CUSTOM_VALIDATORS[k](values[k]));
+  if (bad.length) return { error: CUSTOM_VALIDATORS[bad[0]](values[bad[0]])!, fields: bad, values };
+  const d = Object.fromEntries(CUSTOM_FIELDS.map((k) => [k, values[k].trim()]));
+  d.phone = normalizePhone(d.phone);
 
   // Optional reference photos: real type from the bytes, never the client's word.
   const files = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);

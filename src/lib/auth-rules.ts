@@ -92,6 +92,28 @@ export function nameError(value: string): string | null {
   return null;
 }
 
+// International format: "+", the country code, then the number (8–15 digits in
+// all, E.164). Spaces and dashes are allowed while typing and dropped on save.
+export const PHONE_RE = /^\+[1-9]\d{7,14}$/;
+
+/** "+92 300-1234567" → "+923001234567". */
+export function normalizePhone(value: string): string {
+  return value.replace(/[\s-]/g, "");
+}
+
+export function phoneError(value: string): string | null {
+  const v = normalizePhone(value.trim());
+  if (!v) return "Please enter your phone / WhatsApp number";
+  if (/^0\d/.test(v)) return "Add your country code instead of the first 0, like +92 300 1234567";
+  if (!v.startsWith("+")) return "Start with your country code, like +92";
+  if (!/^\+\d+$/.test(v)) return "Use numbers only after the +";
+  if (v.startsWith("+920")) return "Drop the 0 after +92, like +92 300 1234567";
+  if (!PHONE_RE.test(v)) return "Enter a full number with country code, like +92 300 1234567";
+  // Pakistan: mobile / WhatsApp numbers are +92 3XX XXXXXXX.
+  if (v.startsWith("+92") && !/^\+923\d{9}$/.test(v)) return "Pakistani mobile numbers look like +92 3XX XXXXXXX";
+  return null;
+}
+
 /** The checklist shown under a new-password field. */
 export function passwordRules(value: string) {
   return [

@@ -1300,3 +1300,36 @@ Owner asked to stop writing the same code in many places. No behaviour or look c
   - No AI session in this log created it (the 10-28 entry only found it), so it was probably a manual test in the live admin.
 - Deleted by id on Neon (`NEON_DIRECT_URL`, guarded by `orderItems: none`). Live now has 15 products.
 - A direct DB delete skips `refreshCatalog()`, so the storefront dropped it once the 5-minute catalog cache expired.
+
+### 2026-10-29 — Custom page form: strict live validation (green / red) (Claude)
+Owner asked for professional validation on the Custom page form: name of 5–10 letters, phone only with a country code,
+a proper email check, a green box when valid, a red box with a message on error, and no sending while anything is wrong.
+- **Rules, one place for browser + server:**
+  - `CUSTOM_VALIDATORS` in `lib/custom-request.ts`.
+  - The server action (`sendCustomRequest`) runs the same functions instead of its old zod schema. It returns
+    `fields` so the form can mark the rejected fields red.
+  - **Name** (`customNameError`): A–Z letters with single spaces between words, 5–10 letters (spaces not counted).
+    Urdu script, digits and symbols are rejected.
+  - **Phone** (`phoneError` / `normalizePhone` / `PHONE_RE` in `lib/auth-rules.ts`):
+    - Must start with `+` and a country code: E.164, 8–15 digits.
+    - A `+92` number must be a mobile number (`+92 3XX XXXXXXX`).
+    - Clear hints for `03…` (add the country code), `92…` (missing the +) and `+920…` (drop the 0).
+    - Saved without spaces or dashes (`+923001234567`).
+    - The box only accepts digits, spaces and a leading `+`.
+  - **Email:** the existing `emailError` (typo suggestions, real endings).
+  - **Selects:** the value must be one of the listed options.
+  - **Description:** 10–3,000 characters.
+  - **Needed by:** optional, at most 60 characters.
+- **UI:** the form uses `useAuthForm`, like the sign-up card.
+  - A field goes red after you leave it or press Send, and green with a tick once it's valid.
+  - Send is blocked while anything is wrong: the form shakes and focuses the first bad field.
+  - `auth-field.tsx` now exports `statusRing`, `StatusIcon` and `FieldError`, used by both `AuthField` and the custom form.
+- **Tested:**
+  - Validator table: 31 sample inputs gave the expected results.
+  - Headless Chrome on `next dev`:
+    - Wrong values made every field red with its message, and nothing was sent.
+    - Correct values made every field green.
+    - Letters typed into the phone box are dropped.
+    - No horizontal scroll at 375px.
+  - tsc and eslint are clean.
+  - Not tested: a valid end-to-end submit (it would save a message and send an owner email).

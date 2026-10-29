@@ -64,6 +64,37 @@ export function useShake<T extends HTMLElement>() {
   return [ref, shake] as const;
 }
 
+/** Border + focus ring for a field box: red when invalid, green when valid, gold focus otherwise. */
+export function statusRing(status: FieldStatus): string {
+  return status === "invalid"
+    ? "border-bad bg-bad/[0.04] focus-within:ring-[3px] focus-within:ring-bad/15"
+    : status === "valid"
+      ? "border-ok/70 focus-within:border-ok focus-within:ring-[3px] focus-within:ring-ok/15"
+      : "border-[var(--line-strong)] focus-within:border-gold focus-within:ring-[3px] focus-within:ring-[rgba(195,154,78,0.22)]";
+}
+
+/** Green tick / red alert at the end of a field box. */
+export function StatusIcon({ status, className = "" }: { status: FieldStatus; className?: string }) {
+  if (status === "valid")
+    return (
+      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ok text-white ${className}`}>
+        <CheckIcon className="h-3.5 w-3.5" />
+      </span>
+    );
+  if (status === "invalid") return <AlertIcon className={`h-5 w-5 shrink-0 text-bad ${className}`} />;
+  return null;
+}
+
+/** Red message under an invalid field. */
+export function FieldError({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <p id={id} className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-bad">
+      <AlertIcon className="h-3.5 w-3.5 shrink-0" />
+      {children}
+    </p>
+  );
+}
+
 type ServerState = { error?: string; fields?: string[] };
 type Validators = Record<string, (value: string) => string | null>;
 
@@ -176,12 +207,7 @@ export function AuthField({
   const [show, setShow] = useState(false);
   const errId = `${id}-err`;
 
-  const ring =
-    status === "invalid"
-      ? "border-bad bg-bad/[0.04] focus-within:ring-[3px] focus-within:ring-bad/15"
-      : status === "valid"
-        ? "border-ok/70 focus-within:border-ok focus-within:ring-[3px] focus-within:ring-ok/15"
-        : "border-[var(--line-strong)] focus-within:border-gold focus-within:ring-[3px] focus-within:ring-[rgba(195,154,78,0.22)]";
+  const ring = statusRing(status);
   const iconColor = status === "invalid" ? "text-bad" : status === "valid" ? "text-ok" : "text-muted group-focus-within:text-gold-deep";
 
   return (
@@ -211,12 +237,7 @@ export function AuthField({
           spellCheck={false}
           className="min-w-0 flex-1 bg-transparent px-3 py-3.5 text-[0.95rem] text-ink outline-none placeholder:text-muted/55"
         />
-        {status === "valid" && (
-          <span className="mr-1 flex h-5 w-5 items-center justify-center rounded-full bg-ok text-white">
-            <CheckIcon className="h-3.5 w-3.5" />
-          </span>
-        )}
-        {status === "invalid" && <AlertIcon className="mr-1 h-5 w-5 text-bad" />}
+        <StatusIcon status={status} className="mr-1" />
         {password ? (
           <RevealToggle shown={show} onToggle={() => setShow((v) => !v)} />
         ) : (
@@ -224,12 +245,7 @@ export function AuthField({
         )}
       </div>
 
-      {status === "invalid" && error && (
-        <p id={errId} className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-bad">
-          <AlertIcon className="h-3.5 w-3.5 shrink-0" />
-          {error}
-        </p>
-      )}
+      {status === "invalid" && error && <FieldError id={errId}>{error}</FieldError>}
       {children}
     </div>
   );
