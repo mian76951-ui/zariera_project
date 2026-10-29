@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireCustomer } from "@/lib/customer-auth";
 import { prisma } from "@/lib/prisma";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatDate } from "@/lib/format";
 import { StatusBadge } from "@/components/status-badge";
 import { Emblem } from "@/components/brand/emblem";
 import { logoutAction, startEmailVerification } from "../auth-actions";
@@ -148,11 +148,7 @@ export default async function AccountPage() {
                   <div>
                     <p className="font-medium text-ink">{o.orderNumber}</p>
                     <p className="text-sm text-muted">
-                      {new Date(o.createdAt).toLocaleDateString("en-PK", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}{" "}
+                      {formatDate(o.createdAt)}{" "}
                       · {o.itemCount} item{o.itemCount === 1 ? "" : "s"}
                     </p>
                   </div>

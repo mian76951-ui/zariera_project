@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useCart } from "./cart/cart-provider";
 import { useToast } from "@/components/ui/toast";
 import type { ProductView } from "@/lib/types";
+import { toCartLine } from "@/lib/cart";
 
 // Compact "Add to cart" button used on product cards.
 export function QuickAdd({ product }: { product: ProductView }) {
@@ -24,19 +25,7 @@ export function QuickAdd({ product }: { product: ProductView }) {
     <button
       type="button"
       onClick={() => {
-        add(
-          {
-            id: product.id,
-            slug: product.slug,
-            name: product.name,
-            price: product.price,
-            compareAtPrice: product.compareAtPrice,
-            image: product.images[0],
-            material: product.material,
-            stock: product.stock,
-          },
-          1
-        );
+        add(toCartLine(product), 1);
         setAdded(true);
         setTimeout(() => setAdded(false), 1500);
         toast.success(`${product.name} added to your cart`, { title: "Added to cart" });

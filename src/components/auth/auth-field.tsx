@@ -99,15 +99,21 @@ export function useAuthForm(
   }, [state, shake]);
 
   const value = (name: string) => values[name] ?? "";
+  const set = (name: string, v: string) => {
+    setValues((prev) => ({ ...prev, [name]: v }));
+    setServerBad((prev) => prev.filter((n) => n !== name));
+  };
+  const blur = (name: string) => setTouched((t) => ({ ...t, [name]: true }));
 
   // The ref goes out separately so render code never touches an object holding it.
   const api = {
     value,
-    set: (name: string, v: string) => {
-      setValues((prev) => ({ ...prev, [name]: v }));
-      setServerBad((prev) => prev.filter((n) => n !== name));
-    },
-    blur: (name: string) => setTouched((t) => ({ ...t, [name]: true })),
+    /** Wires an AuthField to this form's state: `<AuthField {...f.bind("email")} />`. */
+    bind: (name: string) => ({
+      value: value(name),
+      onChange: (v: string) => set(name, v),
+      onBlur: () => blur(name),
+    }),
     /** `positive: false` = never show green (e.g. a sign-in password we can't judge). */
     field(name: string, { positive = true }: { positive?: boolean } = {}): { status: FieldStatus; error: string | null } {
       const err = validators[name]?.(value(name)) ?? null;

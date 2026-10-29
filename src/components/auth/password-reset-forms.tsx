@@ -38,9 +38,7 @@ export function ForgotPasswordForm() {
             type="email"
             autoComplete="email"
             placeholder="you@example.com"
-            value={f.value("email")}
-            onChange={(v) => f.set("email", v)}
-            onBlur={() => f.blur("email")}
+            {...f.bind("email")}
             {...f.field("email")}
           />
           {state.error && <AuthAlert>{state.error}</AuthAlert>}
@@ -80,9 +78,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
             password
             autoComplete="new-password"
             placeholder="Create a password"
-            value={f.value("password")}
-            onChange={(v) => f.set("password", v)}
-            onBlur={() => f.blur("password")}
+            {...f.bind("password")}
             {...password}
           >
             <PasswordStrength value={f.value("password")} highlight={password.status === "invalid"} />

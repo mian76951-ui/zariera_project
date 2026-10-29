@@ -38,3 +38,9 @@ export function canMoveOrder(from: OrderStatus, to: OrderStatus): boolean {
 export function canMovePayment(from: PaymentStatus, to: PaymentStatus): boolean {
   return PAYMENT_TRANSITIONS[from]?.includes(to) ?? false;
 }
+
+export const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  COD: "Cash on Delivery",
+  PAYFAST: "Card (PayFast)",
+  SAFEPAY: "Card / Wallet (Safepay)",
+};

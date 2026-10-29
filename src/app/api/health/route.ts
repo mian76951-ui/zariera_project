@@ -31,6 +31,7 @@ function dbUrlInfo() {
 const HINTS: Record<string, string> = {
   unavailable: "Can't connect — check DATABASE_URL (Neon pooled URL, ?sslmode=require&pgbouncer=true&connection_limit=1).",
   "not-migrated": "Connected, but tables are missing — run `npx prisma migrate deploy` against this database.",
+  "in-use": "A row is still referenced by another (foreign key).",
   engine: "Prisma engine missing — redeploy without build cache (binaryTargets includes rhel-openssl-3.0.x).",
   unknown: "Unexpected database error — see the function logs for [health].",
 };

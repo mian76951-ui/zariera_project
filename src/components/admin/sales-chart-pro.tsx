@@ -10,7 +10,7 @@ import {
   type Time,
 } from "lightweight-charts";
 import type { DailyPoint } from "@/lib/admin-data";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatDate } from "@/lib/format";
 
 type Tip = { x: number; y: number; width: number; date: string; revenue: number; orders: number };
 type Stats = { revenue: number; orders: number; avg: number; change: number | null; label: string };
@@ -44,11 +44,7 @@ function timeToKey(t: Time | undefined): string {
 function prettyDate(key: string): string {
   const [y, m, d] = key.split("-").map(Number);
   if (!y) return key;
-  return new Date(y, m - 1, d).toLocaleDateString("en-PK", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return formatDate(new Date(y, m - 1, d));
 }
 
 function palette() {

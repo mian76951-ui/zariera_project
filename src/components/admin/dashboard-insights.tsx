@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatDate } from "@/lib/format";
 import { ProductImage } from "@/components/product-image";
 import type {
   TopProduct,
@@ -110,9 +110,6 @@ function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
 }
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-PK", { day: "numeric", month: "short" });
-}
 
 export function RecentCustomersPanel({ customers }: { customers: AdminCustomerRow[] }) {
   return (
@@ -144,7 +141,7 @@ export function RecentCustomersPanel({ customers }: { customers: AdminCustomerRo
                   {formatPrice(c.spent)}
                 </p>
                 <p className="text-[0.7rem] text-muted">
-                  {c.orders} order{c.orders === 1 ? "" : "s"} · {fmtDate(c.createdAt)}
+                  {c.orders} order{c.orders === 1 ? "" : "s"} · {formatDate(c.createdAt, { year: false })}
                 </p>
               </div>
             </li>
@@ -213,7 +210,7 @@ export function PaymentMethodPanel({ methods }: { methods: PaymentSlice[] }) {
 function niceDate(key: string): string {
   const [y, m, d] = key.split("-").map(Number);
   if (!y) return "—";
-  return new Date(y, m - 1, d).toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
+  return formatDate(new Date(y, m - 1, d));
 }
 
 export function SalesHighlightsPanel({ points }: { points: DailyPoint[] }) {

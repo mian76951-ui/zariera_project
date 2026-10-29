@@ -15,6 +15,7 @@ import { JsonLd } from "@/components/json-ld";
 import { siteUrl } from "@/lib/site";
 import { getStoreSettings } from "@/lib/settings";
 import { formatPrice } from "@/lib/format";
+import { InstagramIcon } from "@/components/icons";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
@@ -367,12 +368,3 @@ function TrustIcon({ i }: { i: number }) {
   );
 }
 
-function InstagramIcon({ size = 15 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-      <rect x="3" y="3" width="18" height="18" rx="5.5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}

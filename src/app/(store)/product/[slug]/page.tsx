@@ -12,6 +12,7 @@ import { JsonLd } from "@/components/json-ld";
 
 import { siteUrl } from "@/lib/site";
 import { AccordionItem } from "@/components/ui/accordion-item";
+import { toCartLine } from "@/lib/cart";
 
 // Product pages are cached and served instantly; a product / stock change
 // refreshes them (catalog tag + revalidatePath in the admin actions).
@@ -202,16 +203,7 @@ export default async function ProductPage({ params }: PageProps<"/product/[slug]
           {/* Actions */}
           <div className="mt-5">
             <AddToCart
-              product={{
-                id: product.id,
-                slug: product.slug,
-                name: product.name,
-                price: product.price,
-                compareAtPrice: product.compareAtPrice,
-                image: product.images[0],
-                material: product.material,
-                stock: product.stock,
-              }}
+              product={toCartLine(product)}
             />
           </div>
 

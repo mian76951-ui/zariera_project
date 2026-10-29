@@ -6,6 +6,7 @@ import { payfastConfigured, safepayConfigured } from "@/lib/payments";
 import { getProductBySlug } from "@/lib/catalog";
 import { getStoreSettings } from "@/lib/settings";
 import type { CartItem } from "@/components/cart/cart-provider";
+import { toCartLine } from "@/lib/cart";
 
 export const metadata: Metadata = {
   title: "Checkout",
@@ -43,14 +44,7 @@ export default async function CheckoutPage({ searchParams }: PageProps<"/checkou
   if (product && product.stock > 0) {
     const qtyRaw = Number(qtyParam);
     buyNow = {
-      id: product.id,
-      slug: product.slug,
-      name: product.name,
-      price: product.price,
-      compareAtPrice: product.compareAtPrice,
-      image: product.images[0],
-      material: product.material,
-      stock: product.stock,
+      ...toCartLine(product),
       quantity: Math.min(product.stock, Math.max(1, Number.isFinite(qtyRaw) ? Math.floor(qtyRaw) : 1)),
     };
   }

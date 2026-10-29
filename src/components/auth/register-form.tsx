@@ -46,9 +46,7 @@ export function RegisterForm({ next }: { next?: string }) {
           icon="user"
           autoComplete="name"
           placeholder="Your name"
-          value={f.value("name")}
-          onChange={(v) => f.set("name", v)}
-          onBlur={() => f.blur("name")}
+          {...f.bind("name")}
           {...f.field("name")}
         />
         <AuthField
@@ -58,9 +56,7 @@ export function RegisterForm({ next }: { next?: string }) {
           type="email"
           autoComplete="email"
           placeholder="you@example.com"
-          value={f.value("email")}
-          onChange={(v) => f.set("email", v)}
-          onBlur={() => f.blur("email")}
+          {...f.bind("email")}
           {...f.field("email")}
         />
         <AuthField
@@ -70,9 +66,7 @@ export function RegisterForm({ next }: { next?: string }) {
           password
           autoComplete="new-password"
           placeholder="Create a password"
-          value={f.value("password")}
-          onChange={(v) => f.set("password", v)}
-          onBlur={() => f.blur("password")}
+          {...f.bind("password")}
           {...password}
         >
           <PasswordStrength value={f.value("password")} highlight={password.status === "invalid"} />

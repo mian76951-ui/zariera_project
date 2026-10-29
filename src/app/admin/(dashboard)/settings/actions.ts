@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, refreshAdminSession } from "@/lib/admin";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { saveStoreSettings, type StoreSettings } from "@/lib/settings";
+import { dbErrorKind } from "@/lib/db-errors";
 
 export type SettingsState = { ok?: boolean; error?: string; values?: Record<string, string> };
 
@@ -187,8 +188,7 @@ export async function addTeamMember(_p: SettingsState, fd: FormData): Promise<Se
       },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "";
-    if (/P2002|Unique constraint/i.test(msg)) return { error: "A team member with that email already exists.", values };
+    if (dbErrorKind(err) === "duplicate") return { error: "A team member with that email already exists.", values };
     return { error: "Could not add — database unavailable.", values };
   }
   revalidatePath("/admin/settings");

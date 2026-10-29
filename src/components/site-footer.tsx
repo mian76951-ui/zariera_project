@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Emblem } from "./brand/emblem";
 import { type StoreSettings, whatsappUrl, phoneHref } from "@/lib/settings-shared";
 import { EmailLink } from "./email-link";
+import { InstagramIcon } from "@/components/icons";
 
 // Contact details & socials come from Admin → Settings. Anything left blank is
 // hidden rather than showing a placeholder.
@@ -204,15 +205,6 @@ function Social({
 }
 
 /* ---- icons ---- */
-function InstagramIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-      <rect x="3" y="3" width="18" height="18" rx="5.5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
 function FacebookIcon() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">

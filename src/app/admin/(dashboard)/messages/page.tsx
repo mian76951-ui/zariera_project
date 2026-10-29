@@ -3,14 +3,11 @@ import { requireAdmin } from "@/lib/admin";
 import { DbBanner } from "@/components/admin/db-banner";
 import { toggleMessageHandled } from "./actions";
 import { splitReferencePhotos } from "@/lib/custom-request";
+import { formatDate } from "@/lib/format";
 
 export const metadata = { title: "Messages" };
 
 export const dynamic = "force-dynamic";
-
-function fmtDate(d: Date) {
-  return d.toLocaleString("en-PK", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
-}
 
 async function load() {
   try {
@@ -94,7 +91,7 @@ export default async function AdminMessagesPage() {
                         <a href={`mailto:${m.email}`} className="hover:text-gold-deep">
                           {m.email}
                         </a>
-                        {m.phone ? ` · ${m.phone}` : ""} · {fmtDate(m.createdAt)}
+                        {m.phone ? ` · ${m.phone}` : ""} · {formatDate(m.createdAt, { time: true })}
                       </p>
                     </div>
                     <form action={toggleMessageHandled.bind(null, m.id, !m.handled)}>
@@ -131,7 +128,7 @@ export default async function AdminMessagesPage() {
                     <tr key={s.id} className="border-b border-[var(--line)] last:border-0">
                       <td className="px-5 py-2.5 text-ink">{s.email}</td>
                       <td className="px-5 py-2.5 text-muted">{s.source ?? "—"}</td>
-                      <td className="whitespace-nowrap px-5 py-2.5 text-muted">{fmtDate(s.createdAt)}</td>
+                      <td className="whitespace-nowrap px-5 py-2.5 text-muted">{formatDate(s.createdAt, { time: true })}</td>
                     </tr>
                   ))}
                 </tbody>

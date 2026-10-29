@@ -1,12 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
 import { slugify } from "@/lib/slug";
-import { refreshCatalog } from "@/lib/cache-tags";
+import { refreshStorefront } from "@/lib/cache-tags";
+import { dbErrorKind } from "@/lib/db-errors";
 
 export type CategoryState = { error?: string; ok?: boolean };
 
@@ -38,17 +38,13 @@ export async function createCategory(
       },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "";
-    if (/Unique constraint|P2002/i.test(msg))
-      return { error: "A category with that name or slug already exists." };
-    if (/connect|ECONNREFUSED|P1001|P1000/i.test(msg))
+    const kind = dbErrorKind(err);
+    if (kind === "duplicate") return { error: "A category with that name or slug already exists." };
+    if (kind === "unavailable")
       return { error: "Database unavailable. Please try again." };
     return { error: "Could not create the category." };
   }
-  revalidatePath("/admin/categories");
-  refreshCatalog();
-  revalidatePath("/", "layout");
-  revalidatePath("/shop");
+  refreshStorefront();
   return { ok: true };
 }
 
@@ -57,13 +53,9 @@ export async function deleteCategory(id: string): Promise<void> {
   let flash = "category-deleted";
   try {
     await prisma.category.delete({ where: { id } });
-    revalidatePath("/shop");
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "";
-    flash = /P2003|Foreign key/i.test(msg) ? "category-in-use" : "delete-failed";
+    flash = dbErrorKind(err) === "in-use" ? "category-in-use" : "delete-failed";
   }
-  revalidatePath("/admin/categories");
-  refreshCatalog();
-  revalidatePath("/", "layout");
+  refreshStorefront();
   redirect(`/admin/categories?flash=${flash}`);
 }

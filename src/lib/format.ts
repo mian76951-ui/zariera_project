@@ -17,3 +17,15 @@ export function savingsOf(price: number, compareAt: number | null | undefined): 
   if (!compareAt || compareAt <= price) return null;
   return compareAt - price;
 }
+
+/** "12 Oct 2026" (or "12 Oct" with `year: false`, plus "3:05 pm" with `time: true`). */
+export function formatDate(
+  date: Date | string,
+  { year = true, time = false }: { year?: boolean; time?: boolean } = {}
+): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+  if (year) opts.year = "numeric";
+  if (time) Object.assign(opts, { hour: "numeric", minute: "2-digit" });
+  return time ? d.toLocaleString("en-PK", opts) : d.toLocaleDateString("en-PK", opts);
+}

@@ -1,15 +1,11 @@
 import { getAdminCustomers } from "@/lib/admin-data";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatDate } from "@/lib/format";
 import { DbBanner } from "@/components/admin/db-banner";
 import { requireAdmin } from "@/lib/admin";
 
 export const metadata = { title: "Customers" };
 
 export const dynamic = "force-dynamic";
-
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
-}
 
 export default async function AdminCustomersPage() {
   await requireAdmin(); // layouts don't re-run on client navigation
@@ -56,7 +52,7 @@ export default async function AdminCustomersPage() {
                       <td className="px-4 py-3 text-right font-medium text-ink [font-variant-numeric:tabular-nums]">
                         {formatPrice(c.spent)}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-muted">{fmtDate(c.createdAt)}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-muted">{formatDate(c.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -73,7 +69,7 @@ export default async function AdminCustomersPage() {
                   </div>
                   <p className="mt-0.5 truncate text-xs text-muted">{c.email}</p>
                   <p className="mt-1 text-xs text-muted">
-                    {c.orders} order{c.orders === 1 ? "" : "s"} · {c.phone || "no phone"} · joined {fmtDate(c.createdAt)}
+                    {c.orders} order{c.orders === 1 ? "" : "s"} · {c.phone || "no phone"} · joined {formatDate(c.createdAt)}
                   </p>
                 </div>
               ))}

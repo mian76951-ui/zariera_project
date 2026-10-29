@@ -1,6 +1,5 @@
 // Store settings shape + pure helpers. Client-safe (no server imports) so the
 // checkout form, footer, chat etc. can use the values passed down to them.
-import { formatPrice } from "./format";
 
 export type StoreSettings = {
   contact: {
@@ -43,8 +42,4 @@ export function phoneHref(s: StoreSettings): string {
 
 export function shippingFor(subtotal: number, s: StoreSettings["shipping"]): number {
   return subtotal >= s.freeThreshold ? 0 : s.flatFee;
-}
-
-export function freeShippingText(s: StoreSettings["shipping"]): string {
-  return `Free shipping on orders over ${formatPrice(s.freeThreshold)}`;
 }

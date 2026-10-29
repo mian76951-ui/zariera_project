@@ -1,22 +1,15 @@
 import Link from "next/link";
 import { getStoreSettings } from "@/lib/settings";
 import { getAdminStats, getAdminOrders, getAdminProducts } from "@/lib/admin-data";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatDate } from "@/lib/format";
 import { DbBanner } from "@/components/admin/db-banner";
 import { StatusBadge } from "@/components/status-badge";
 import { requireAdmin } from "@/lib/admin";
+import { TagIcon } from "@/components/icons";
 
 export const metadata = { title: { absolute: "Dashboard · ZARIERA Admin" } };
 
 export const dynamic = "force-dynamic";
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-PK", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 export default async function AdminDashboard() {
   await requireAdmin(); // layouts don't re-run on client navigation
@@ -261,14 +254,6 @@ function ClockIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
       <circle cx="12" cy="12" r="8" />
       <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-function TagIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-      <path d="M4 4h7l9 9-7 7-9-9V4z" strokeLinejoin="round" />
-      <circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none" />
     </svg>
   );
 }

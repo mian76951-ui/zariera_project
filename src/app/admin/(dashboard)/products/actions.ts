@@ -1,12 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
 import { slugify } from "@/lib/slug";
-import { refreshCatalog } from "@/lib/cache-tags";
+import { refreshStorefront } from "@/lib/cache-tags";
+import { dbErrorKind } from "@/lib/db-errors";
 
 export type ProductFormState = { error?: string; values?: Record<string, string> };
 
@@ -89,9 +89,7 @@ export async function createProduct(
   } catch (err) {
     return { error: dbError(err), values: keep(formData) };
   }
-  revalidatePath("/admin/products");
-  refreshCatalog(); // storefront data + cached pages see the change on the next visit
-  revalidatePath("/", "layout");
+  refreshStorefront();
   redirect("/admin/products?flash=product-created");
 }
 
@@ -109,9 +107,7 @@ export async function updateProduct(
   } catch (err) {
     return { error: dbError(err), values: keep(formData) };
   }
-  revalidatePath("/admin/products");
-  refreshCatalog(); // storefront data + cached pages see the change on the next visit
-  revalidatePath("/", "layout");
+  refreshStorefront();
   redirect("/admin/products?flash=product-updated");
 }
 
@@ -121,23 +117,16 @@ export async function deleteProduct(id: string): Promise<void> {
   try {
     await prisma.product.delete({ where: { id } });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "";
-    // P2003 = foreign key: the product appears in past orders (kept for history).
-    flash = /P2003|Foreign key/i.test(msg) ? "product-in-use" : "delete-failed";
+    // In use = the product appears in past orders (kept for history).
+    flash = dbErrorKind(err) === "in-use" ? "product-in-use" : "delete-failed";
   }
-  revalidatePath("/admin/products");
-  refreshCatalog(); // storefront data + cached pages see the change on the next visit
-  revalidatePath("/", "layout");
+  refreshStorefront();
   redirect(`/admin/products?flash=${flash}`);
 }
 
 function dbError(err: unknown): string {
-  const msg = err instanceof Error ? err.message : "";
-  if (/connect|ECONNREFUSED|P1001|P1000/i.test(msg)) {
-    return "Database not connected. Connect DATABASE_URL to save products.";
-  }
-  if (/Unique constraint|P2002/i.test(msg)) {
-    return "A product with that slug or SKU already exists.";
-  }
+  const kind = dbErrorKind(err);
+  if (kind === "unavailable") return "Database not connected. Connect DATABASE_URL to save products.";
+  if (kind === "duplicate") return "A product with that slug or SKU already exists.";
   return "Could not save the product. Please try again.";
 }

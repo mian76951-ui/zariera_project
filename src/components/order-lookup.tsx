@@ -4,17 +4,12 @@ import { useActionState } from "react";
 import { lookupOrderAction, type LookupState } from "@/app/(store)/account/orders/actions";
 import { StatusBadge } from "@/components/status-badge";
 import { formatPrice } from "@/lib/format";
+import { PAYMENT_METHOD_LABEL } from "@/lib/order-status";
 
 const initial: LookupState = { status: "idle" };
 
 const inputCls =
   "w-full rounded-md border border-[var(--line-strong)] bg-cream-soft px-4 py-3 text-sm outline-none focus:border-gold";
-
-const PAYMENT_LABEL: Record<string, string> = {
-  COD: "Cash on Delivery",
-  PAYFAST: "Card (PayFast)",
-  SAFEPAY: "Card / Wallet (Safepay)",
-};
 
 export function OrderLookup({ defaultOrder = "" }: { defaultOrder?: string }) {
   const [state, formAction, pending] = useActionState(lookupOrderAction, initial);
@@ -70,7 +65,7 @@ export function OrderLookup({ defaultOrder = "" }: { defaultOrder?: string }) {
 
           <div className="mt-4 flex justify-between text-sm">
             <span className="text-muted">
-              Payment: {PAYMENT_LABEL[state.order.paymentMethod] ?? state.order.paymentMethod} ·{" "}
+              Payment: {PAYMENT_METHOD_LABEL[state.order.paymentMethod] ?? state.order.paymentMethod} ·{" "}
               {state.order.paymentStatus.charAt(0) + state.order.paymentStatus.slice(1).toLowerCase()}
             </span>
             <span className="font-medium text-ink">{formatPrice(state.order.total)}</span>

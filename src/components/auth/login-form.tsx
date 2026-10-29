@@ -42,9 +42,7 @@ export function LoginForm({ next }: { next?: string }) {
           type="email"
           autoComplete="email"
           placeholder="you@example.com"
-          value={f.value("email")}
-          onChange={(v) => f.set("email", v)}
-          onBlur={() => f.blur("email")}
+          {...f.bind("email")}
           {...email}
         />
         <AuthField
@@ -54,9 +52,7 @@ export function LoginForm({ next }: { next?: string }) {
           password
           autoComplete="current-password"
           placeholder="Your password"
-          value={f.value("password")}
-          onChange={(v) => f.set("password", v)}
-          onBlur={() => f.blur("password")}
+          {...f.bind("password")}
           labelAside={
             <Link href="/forgot-password" className="text-xs font-medium text-gold-deep hover:underline">
               Forgot password?

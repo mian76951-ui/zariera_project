@@ -1267,3 +1267,27 @@ still worked).
     padding is `p-3 sm:p-4`. Home and search keep 4 across.
 - **Test pass:** tsc and eslint are clean and `next build` passes (proxy registered). Every store route returns
   200/307/404 as expected; the stale-cookie path has no loop; phone 375px has no horizontal scroll.
+
+### 2026-10-29 — DRY pass: shared helpers instead of copy-pasted code (Claude)
+Owner asked to stop writing the same code in many places. No behaviour or look changes; 31 files, ~110 lines net removed.
+- **`formatDate()`** (`lib/format.ts`, options `year` / `time`) replaces 4 local `fmtDate`s + inline copies (admin
+  dashboard, customers, messages, orders table, insights, sales chart, account orders). The invoice (long month) is left as is.
+- **`PAYMENT_METHOD_LABEL`** (`lib/order-status.ts`) replaces the copies in the invoice and order lookup.
+- **`toCartLine(product)`** (new `lib/cart.ts`, plain module so server pages can call it) replaces the product → cart-item
+  mapping copied in the product page, checkout "Buy it now" and quick-add.
+- **`useIsAuthScreen()`** (`conditional-header.tsx`): one list of auth screens for both header and footer.
+- **`refreshStorefront()`** (`lib/cache-tags.ts` = `refreshCatalog()` + `revalidatePath("/", "layout")`) replaces the 5
+  copies in product/category actions. The extra `revalidatePath("/admin/…")` / `("/shop")` calls were dropped (the
+  layout-level call already covers every route).
+- **`dbErrorKind()`** gained an `"in-use"` kind (P2003 foreign key). Product, category and team-member actions now use it
+  instead of their own Prisma-code regexes.
+- **Auth forms:** `useAuthForm` has `f.bind(name)` → `{value, onChange, onBlur}`; 7 fields no longer repeat those 3 props.
+- **Shared icons** (`components/icons.tsx`): `InstagramIcon` (home + footer), admin `TagIcon` (dashboard + nav).
+- **Dead code removed:** the unused `shippingFor` / `FREE_SHIPPING_TEXT` in `lib/shipping.ts` (live rules are in
+  `settings-shared.ts`) and the unused `freeShippingText`.
+- **Left on purpose:** the per-form Tailwind class strings (they differ slightly, so merging them would change the look),
+  and the `try { … } catch { dbConnected: false }` shape in `admin-data.ts` (each getter has its own fallback).
+- **Tested:** tsc + eslint clean, `next build` passes. With `next start`, every store route returns 200/307 as expected, and the
+  header is hidden on `/login`. All 12 admin pages + order detail + invoice return 200 (session minted locally from the
+  admin's current `ver`, so no device was signed out). Dates and payment labels render as before.
+- Not committed / pushed yet (a push goes live).

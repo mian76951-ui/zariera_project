@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { TagIcon } from "@/components/icons";
 
 function GridIcon() {
   return (
@@ -11,14 +12,6 @@ function GridIcon() {
       <rect x="14" y="3" width="7" height="7" rx="1" />
       <rect x="3" y="14" width="7" height="7" rx="1" />
       <rect x="14" y="14" width="7" height="7" rx="1" />
-    </svg>
-  );
-}
-function TagIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-      <path d="M4 4h7l9 9-7 7-9-9V4z" strokeLinejoin="round" />
-      <circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -99,7 +92,7 @@ export const ADMIN_LINKS: { label: string; href: string; icon: ReactNode }[] = [
   { label: "Insights", href: "/admin/insights", icon: <SparkIcon /> },
   { label: "Performance", href: "/admin/performance", icon: <GaugeIcon /> },
   { label: "Orders", href: "/admin/orders", icon: <BagIcon /> },
-  { label: "Products", href: "/admin/products", icon: <TagIcon /> },
+  { label: "Products", href: "/admin/products", icon: <TagIcon size={17} /> },
   { label: "Categories", href: "/admin/categories", icon: <LayersIcon /> },
   { label: "Customers", href: "/admin/customers", icon: <UsersIcon /> },
   { label: "Messages", href: "/admin/messages", icon: <InboxIcon /> },

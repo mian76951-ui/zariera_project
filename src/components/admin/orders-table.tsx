@@ -2,16 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatDate } from "@/lib/format";
 import { StatusBadge } from "@/components/status-badge";
 import type { AdminOrderRow } from "@/lib/admin-data";
 
 const TABS = ["ALL", "PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
 type Tab = (typeof TABS)[number];
-
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
-}
 
 export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
   const router = useRouter();
@@ -113,7 +109,7 @@ export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
                     </td>
                     <td className="px-4 py-3"><StatusBadge status={o.status} /></td>
                     <td className="px-4 py-3 text-right font-medium text-ink [font-variant-numeric:tabular-nums]">{formatPrice(o.total)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-muted">{fmtDate(o.createdAt)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-muted">{formatDate(o.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -138,7 +134,7 @@ export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
                 </div>
                 <div className="flex items-center justify-between gap-2 text-xs text-muted">
                   <span>{o.itemCount} item{o.itemCount === 1 ? "" : "s"} · {o.paymentMethod}</span>
-                  <span>{fmtDate(o.createdAt)}</span>
+                  <span>{formatDate(o.createdAt)}</span>
                 </div>
               </button>
             ))}
