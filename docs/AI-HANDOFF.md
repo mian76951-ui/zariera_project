@@ -1291,3 +1291,12 @@ Owner asked to stop writing the same code in many places. No behaviour or look c
   header is hidden on `/login`. All 12 admin pages + order detail + invoice return 200 (session minted locally from the
   admin's current `ver`, so no device was signed out). Dates and payment labels render as before.
 - Not committed / pushed yet (a push goes live).
+
+### 2026-10-29 — "Wilma Forbes" test product deleted from live (Claude)
+- Owner confirmed it is not a real product. Live DB facts before deleting:
+  - Created 2026-10-28 14:17 UTC through the admin panel: no photo, SKU or description, Bracelets, Rs 1,200 with a
+    "compare at" price of Rs 1,000, stock 10.
+  - It was on 0 orders.
+  - No AI session in this log created it (the 10-28 entry only found it), so it was probably a manual test in the live admin.
+- Deleted by id on Neon (`NEON_DIRECT_URL`, guarded by `orderItems: none`). Live now has 15 products.
+- A direct DB delete skips `refreshCatalog()`, so the storefront dropped it once the 5-minute catalog cache expired.
