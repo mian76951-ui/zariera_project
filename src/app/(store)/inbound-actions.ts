@@ -1,18 +1,17 @@
 "use server";
 
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { clientIp, rateLimit, TOO_MANY } from "@/lib/rate-limit";
 import { sendContactNotification } from "@/lib/email";
 import { randomBytes } from "node:crypto";
 import {
-  CUSTOM_VALIDATORS,
   MAX_REFERENCE_PHOTOS,
   MAX_REFERENCE_BYTES,
   REFERENCE_PHOTOS_HEADING,
 } from "@/lib/custom-request";
 import { saveUpload, sniffImage, type ImageExt } from "@/lib/uploads";
 import { emailError, normalizePhone } from "@/lib/auth-rules";
+import { CONTACT_VALIDATORS, CUSTOM_VALIDATORS, checkFields } from "@/lib/inbound-rules";
 
 export type InboundState = {
   ok?: boolean;
@@ -22,44 +21,30 @@ export type InboundState = {
   values?: Record<string, string>;
 };
 
-const contactSchema = z.object({
-  name: z.string().trim().min(2, "Please enter your name").max(120),
-  email: z.string().trim().superRefine((v, ctx) => {
-    const err = emailError(v);
-    if (err) ctx.addIssue({ code: "custom", message: err });
-  }),
-  phone: z.string().trim().max(30).optional(),
-  subject: z.string().trim().max(200).optional(),
-  message: z.string().trim().min(5, "Please write a short message").max(5000),
-  topic: z.string().trim().max(80).optional(),
-});
+const CONTACT_FIELDS = Object.keys(CONTACT_VALIDATORS);
+
+/** Trimmed text of each field (missing → ""). */
+const readFields = (formData: FormData, keys: string[]) =>
+  Object.fromEntries(keys.map((k) => [k, String(formData.get(k) ?? "")])) as Record<string, string>;
 
 // Contact form → saved for the admin (Messages page) + best-effort email alert.
-export async function sendContactMessage(prev: InboundState, formData: FormData): Promise<InboundState> {
-  const res = await saveContact(prev, formData);
-  if (res.ok) return res;
-  // Keep what they typed after an error (React 19 resets the form).
-  const values = Object.fromEntries(
-    ["name", "email", "phone", "subject", "message"].map((k) => [k, String(formData.get(k) ?? "")])
-  );
-  return { ...res, values };
-}
-
-async function saveContact(_prev: InboundState, formData: FormData): Promise<InboundState> {
+export async function sendContactMessage(_prev: InboundState, formData: FormData): Promise<InboundState> {
+  const values = readFields(formData, CONTACT_FIELDS);
   // Honeypot: real users never fill this hidden field.
   if (String(formData.get("website") ?? "")) return { ok: true };
-  if (!rateLimit(`contact:${await clientIp()}`, 5, 30 * 60_000)) return { error: TOO_MANY };
+  if (!rateLimit(`contact:${await clientIp()}`, 5, 30 * 60_000)) return { error: TOO_MANY, values };
 
-  const parsed = contactSchema.safeParse({
-    name: formData.get("name") ?? "",
-    email: formData.get("email") ?? "",
-    phone: formData.get("phone") || undefined,
-    subject: formData.get("subject") || undefined,
-    message: formData.get("message") ?? "",
-    topic: formData.get("topic") || undefined,
-  });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
-  const d = parsed.data;
+  // The same rules the form checks live — enforced here for anyone skipping the browser.
+  const bad = checkFields(CONTACT_VALIDATORS, values);
+  if (bad) return { ...bad, values };
+  const d = {
+    name: values.name.trim(),
+    email: values.email.trim(),
+    phone: values.phone.trim() ? normalizePhone(values.phone) : undefined,
+    subject: values.subject.trim() || undefined,
+    message: values.message.trim(),
+    topic: String(formData.get("topic") ?? "").trim().slice(0, 80) || undefined,
+  };
 
   try {
     await prisma.contactMessage.create({
@@ -74,7 +59,7 @@ async function saveContact(_prev: InboundState, formData: FormData): Promise<Inb
     });
   } catch (err) {
     console.error("[contact] could not save message:", err);
-    return { error: "We couldn't send your message right now. Please try again shortly." };
+    return { error: "We couldn't send your message right now. Please try again shortly.", values };
   }
 
   await sendContactNotification(d);
@@ -87,13 +72,13 @@ async function saveContact(_prev: InboundState, formData: FormData): Promise<Inb
 const CUSTOM_FIELDS = Object.keys(CUSTOM_VALIDATORS);
 
 export async function sendCustomRequest(_prev: InboundState, formData: FormData): Promise<InboundState> {
-  const values = Object.fromEntries(CUSTOM_FIELDS.map((k) => [k, String(formData.get(k) ?? "")]));
+  const values = readFields(formData, CUSTOM_FIELDS);
   if (String(formData.get("website") ?? "")) return { ok: true }; // honeypot
   if (!rateLimit(`custom:${await clientIp()}`, 5, 30 * 60_000)) return { error: TOO_MANY, values };
 
   // The same rules the form checks live — enforced here for anyone skipping the browser.
-  const bad = CUSTOM_FIELDS.filter((k) => CUSTOM_VALIDATORS[k](values[k]));
-  if (bad.length) return { error: CUSTOM_VALIDATORS[bad[0]](values[bad[0]])!, fields: bad, values };
+  const bad = checkFields(CUSTOM_VALIDATORS, values);
+  if (bad) return { ...bad, values };
   const d = Object.fromEntries(CUSTOM_FIELDS.map((k) => [k, values[k].trim()]));
   d.phone = normalizePhone(d.phone);
 

@@ -344,3 +344,10 @@ p {
   .sale-shine::after { animation: none; display: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
 }
+
+/* Native dropdown lists follow the theme (Chrome on Linux / Windows paints
+   <option> rows itself — without this they stay white in dark mode). */
+select option {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+}

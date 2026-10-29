@@ -107,9 +107,9 @@ export function useAuthForm(
   formAction: (payload: FormData) => void,
   state: ServerState,
   validators: Validators,
-  { clearOnError = [] }: { clearOnError?: string[] } = {}
+  { clearOnError = [], initial = {} }: { clearOnError?: string[]; initial?: Record<string, string> } = {}
 ) {
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(initial);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
   const [serverBad, setServerBad] = useState<string[]>([]);

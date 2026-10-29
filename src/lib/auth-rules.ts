@@ -6,10 +6,10 @@
 export const MIN_PASSWORD = 8;
 
 // name@domain.tld, strictly: local part of letters / digits / . _ % + - with no
-// leading, trailing or doubled dots; domain labels that don't start or end with
-// "-"; a TLD of 2–24 letters.
+// leading, trailing or doubled dots; after the @ letters only (owner's rule — no
+// digits), labels that don't start or end with "-"; a TLD of 2–24 letters.
 export const EMAIL_RE =
-  /^[a-z0-9_%+-]+(?:\.[a-z0-9_%+-]+)*@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/i;
+  /^[a-z0-9_%+-]+(?:\.[a-z0-9_%+-]+)*@(?:[a-z](?:[a-z-]{0,61}[a-z])?\.)+[a-z]{2,24}$/i;
 
 // Real endings only: any 2-letter country code (.pk, .uk, .ae …) or one of
 // these. Catches ".comm", ".con", ".cmo", ".coom" and friends.
@@ -70,6 +70,7 @@ export function emailError(value: string): string | null {
   const [local, domain] = v.split("@");
   if (!local) return "Add your name before the @";
   if (!domain) return "Add the domain after the @, like gmail.com";
+  if (/[^a-z.-]/i.test(domain)) return "Use letters only after the @, like gmail.com";
   if (!domain.includes(".")) return "The domain needs an ending, like .com or .pk";
   if (v.length > 200 || local.length > 64 || !EMAIL_RE.test(v)) return "Enter a valid email, like name@example.com";
   const tld = domain.slice(domain.lastIndexOf(".") + 1).toLowerCase();
@@ -92,26 +93,29 @@ export function nameError(value: string): string | null {
   return null;
 }
 
-// International format: "+", the country code, then the number (8–15 digits in
-// all, E.164). Spaces and dashes are allowed while typing and dropped on save.
+// Phone / WhatsApp. Pakistani mobiles in any usual form — 03XX XXXXXXX,
+// 92 3XX XXXXXXX or +92 3XX XXXXXXX — or any number with a "+" country code
+// (E.164: 8–15 digits). Spaces and dashes are fine while typing.
 export const PHONE_RE = /^\+[1-9]\d{7,14}$/;
 
-/** "+92 300-1234567" → "+923001234567". */
+/** Saved form: "0300 1234567" / "92 300-1234567" → "+923001234567"; others lose spaces / dashes. */
 export function normalizePhone(value: string): string {
-  return value.replace(/[\s-]/g, "");
+  const v = value.trim().replace(/[\s-]/g, "");
+  if (/^03\d{9}$/.test(v)) return `+92${v.slice(1)}`;
+  if (/^923\d{9}$/.test(v)) return `+${v}`;
+  return v;
 }
 
 export function phoneError(value: string): string | null {
-  const v = normalizePhone(value.trim());
+  const v = value.trim().replace(/[\s-]/g, "");
   if (!v) return "Please enter your phone / WhatsApp number";
-  if (/^0\d/.test(v)) return "Add your country code instead of the first 0, like +92 300 1234567";
-  if (!v.startsWith("+")) return "Start with your country code, like +92";
-  if (!/^\+\d+$/.test(v)) return "Use numbers only after the +";
+  if (!/^\+?\d+$/.test(v)) return "Use numbers only (a + at the start is fine)";
+  if (v.startsWith("0")) return /^03\d{9}$/.test(v) ? null : "Mobile numbers look like 03XX XXXXXXX (11 digits)";
   if (v.startsWith("+920")) return "Drop the 0 after +92, like +92 300 1234567";
-  if (!PHONE_RE.test(v)) return "Enter a full number with country code, like +92 300 1234567";
-  // Pakistan: mobile / WhatsApp numbers are +92 3XX XXXXXXX.
-  if (v.startsWith("+92") && !/^\+923\d{9}$/.test(v)) return "Pakistani mobile numbers look like +92 3XX XXXXXXX";
-  return null;
+  if (v.startsWith("92")) return /^923\d{9}$/.test(v) ? null : "Numbers with 92 look like 92 3XX XXXXXXX";
+  if (v.startsWith("+92")) return /^\+923\d{9}$/.test(v) ? null : "Pakistani mobile numbers look like +92 3XX XXXXXXX";
+  if (!v.startsWith("+")) return "Start with 03, 92 or your country code (like +44)";
+  return PHONE_RE.test(v) ? null : "Enter a full number with country code, like +44 7911 123456";
 }
 
 /** The checklist shown under a new-password field. */

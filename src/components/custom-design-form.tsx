@@ -1,56 +1,16 @@
 "use client";
 
-import { useActionState, useEffect, useId, type ReactNode } from "react";
+import { useActionState, useEffect } from "react";
 import Link from "next/link";
 import { sendCustomRequest, type InboundState } from "@/app/(store)/inbound-actions";
-import { PIECE_TYPES, FINISHES, BUDGETS, CUSTOM_VALIDATORS } from "@/lib/custom-request";
+import { PIECE_TYPES, FINISHES, BUDGETS } from "@/lib/custom-request";
+import { CUSTOM_VALIDATORS } from "@/lib/inbound-rules";
 import { useToast } from "@/components/ui/toast";
 import { ReferencePhotos } from "@/components/reference-photos";
-import { AuthAlert, FieldError, StatusIcon, statusRing, useAuthForm, type FieldStatus } from "@/components/auth/auth-field";
-
-const control =
-  "w-full min-w-0 bg-transparent px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-muted/60";
-const labelCls = "mb-1.5 block text-xs font-medium uppercase tracking-[0.1em] text-muted";
+import { AuthAlert, useAuthForm } from "@/components/auth/auth-field";
+import { Field, bindControl, fieldControl as control, phoneChars } from "@/components/form/validated-field";
 
 const initial: InboundState = {};
-
-/** Phone box keeps only a leading "+", digits and single spaces. */
-const phoneChars = (v: string) => v.replace(/[^\d+ ]/g, "").replace(/(?!^)\+/g, "").replace(/ {2,}/g, " ");
-
-/** Label + a box that turns green when the value is valid and red (with a message) when it isn't. */
-function Field({
-  label,
-  status,
-  error,
-  hint,
-  multiline = false,
-  children,
-}: {
-  label: string;
-  status: FieldStatus;
-  error: string | null;
-  hint?: string;
-  multiline?: boolean;
-  children: (a11y: { id: string; "aria-invalid": boolean; "aria-describedby"?: string }) => ReactNode;
-}) {
-  const id = useId();
-  const errId = `${id}-err`;
-  const showError = status === "invalid" && error;
-  return (
-    <div>
-      <label htmlFor={id} className={labelCls}>{label}</label>
-      <div className={`relative flex rounded-lg border bg-surface transition ${multiline ? "items-start" : "items-center"} ${statusRing(status)}`}>
-        {children({ id, "aria-invalid": status === "invalid", "aria-describedby": showError ? errId : undefined })}
-        <StatusIcon status={status} className={multiline ? "mr-3 mt-2.5" : "mr-3"} />
-      </div>
-      {showError ? (
-        <FieldError id={errId}>{error}</FieldError>
-      ) : (
-        hint && <p className="mt-1.5 text-xs text-muted">{hint}</p>
-      )}
-    </div>
-  );
-}
 
 export function CustomDesignForm({ whatsappUrl }: { whatsappUrl?: string }) {
   const [state, formAction, pending] = useActionState(sendCustomRequest, initial);
@@ -62,16 +22,7 @@ export function CustomDesignForm({ whatsappUrl }: { whatsappUrl?: string }) {
     else if (state.ok) toast.success("We'll contact you within 1–2 working days.", { title: "Request received" });
   }, [state, toast]);
 
-  /** Controlled value + live status for a field. */
-  const bind = (name: string, filter?: (v: string) => string) => {
-    const b = f.bind(name);
-    return {
-      name,
-      value: b.value,
-      onChange: (e: { target: { value: string } }) => b.onChange(filter ? filter(e.target.value) : e.target.value),
-      onBlur: b.onBlur,
-    };
-  };
+  const bind = (name: string, filter?: (v: string) => string) => bindControl(f, name, filter);
 
   if (state.ok) {
     return (
@@ -116,9 +67,9 @@ export function CustomDesignForm({ whatsappUrl }: { whatsappUrl?: string }) {
             <input {...a11y} {...bind("email")} type="email" autoComplete="email" spellCheck={false} placeholder="you@example.com" className={control} />
           )}
         </Field>
-        <Field label="Phone / WhatsApp" hint="With country code" {...f.field("phone")}>
+        <Field label="Phone / WhatsApp" hint="03XX XXXXXXX, 92… or +country code" {...f.field("phone")}>
           {(a11y) => (
-            <input {...a11y} {...bind("phone", phoneChars)} type="tel" inputMode="tel" autoComplete="tel" maxLength={20} placeholder="+92 300 1234567" className={control} />
+            <input {...a11y} {...bind("phone", phoneChars)} type="tel" inputMode="tel" autoComplete="tel" maxLength={20} placeholder="0300 1234567" className={control} />
           )}
         </Field>
       </div>

@@ -1333,3 +1333,35 @@ a proper email check, a green box when valid, a red box with a message on error,
     - No horizontal scroll at 375px.
   - tsc and eslint are clean.
   - Not tested: a valid end-to-end submit (it would save a message and send an owner email).
+
+### 2026-10-29 — Email letters-only domain, 03/92 phones, themed dropdowns, Contact form validation (Claude)
+Owner's test feedback on the Custom form:
+- **Email:** digits after the @ were accepted (`ali@gmail123.com`).
+  - Now the domain must be letters only ("Use letters only after the @, like gmail.com"): `EMAIL_RE` + `emailError` in
+    `lib/auth-rules.ts`.
+  - This is the shared rule, so sign-in, sign-up, forgot password, newsletter and checkout follow it too.
+  - Checked first: no account on local (38 emails) or live (9 accounts) has a digit in its domain, so no one is locked out.
+- **Phone:** the owner wants local forms too. The rule (`phoneError`) now accepts:
+  - `03XX XXXXXXX`, `92 3XX XXXXXXX` and `+92 3XX XXXXXXX`;
+  - any `+country` number (E.164).
+  - `normalizePhone` saves Pakistani numbers as `+923XXXXXXXXX`.
+- **Dropdowns in dark mode:** the open list was white (Chrome paints `<option>` itself). `globals.css` now gives
+  `select option` the `surface` / `ink` tokens, so the list follows the theme.
+- **Contact page:** same validation as the Custom page.
+  - New `lib/inbound-rules.ts` holds `personNameError` (5–10 letters), `CUSTOM_VALIDATORS`, `CONTACT_VALIDATORS` (phone
+    optional, but checked if filled) and `checkFields`. Both server actions use them; the zod schemas for these forms are gone.
+  - The shared `Field` box / `bindControl` / `phoneChars` live in `components/form/validated-field.tsx`.
+  - `useAuthForm` takes `initial` values (Contact `?topic=` pre-fills the subject).
+- **End-to-end test** (headless Chrome, `next dev`, local DB):
+  - Wrong values turn red with the right message and nothing is sent, on both forms.
+  - 03 / 92 / +92 numbers all turn green.
+  - Dark-mode option rows are `rgb(36,19,25)` on `rgb(243,231,214)`.
+  - With JavaScript off, the server itself rejects bad data.
+  - The register page shows the new email message.
+  - Real submits saved correctly: the custom request with its phone normalised, the contact message without a phone.
+    The success screen showed.
+  - No horizontal scroll at 375px.
+  - The 3 QA messages were deleted from the local DB afterwards. (SMTP is set locally, so the owner may have received
+    up to 3 "TEST … Claude QA" notification emails.)
+- **Note:** a submit takes 8–12 s locally because the action waits for the SMTP notification email before answering.
+  Worth checking on live; if it's slow there too, send the email without blocking the reply.

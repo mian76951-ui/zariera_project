@@ -2,15 +2,19 @@
 
 import { useActionState, useEffect } from "react";
 import { sendContactMessage, type InboundState } from "@/app/(store)/inbound-actions";
+import { CONTACT_VALIDATORS } from "@/lib/inbound-rules";
 import { useToast } from "@/components/ui/toast";
-
-const field =
-  "w-full rounded-md border border-[var(--line-strong)] bg-cream-soft px-3.5 py-2.5 text-sm outline-none focus:border-gold";
+import { AuthAlert, useAuthForm } from "@/components/auth/auth-field";
+import { Field, bindControl, fieldControl as control, phoneChars } from "@/components/form/validated-field";
 
 const initial: InboundState = {};
 
 export function ContactForm({ topic, defaultSubject }: { topic?: string; defaultSubject?: string }) {
   const [state, formAction, pending] = useActionState(sendContactMessage, initial);
+  const [formRef, f] = useAuthForm(formAction, state, CONTACT_VALIDATORS, {
+    initial: defaultSubject ? { subject: defaultSubject } : {},
+  });
+  const bind = (name: string, filter?: (v: string) => string) => bindControl(f, name, filter);
   const toast = useToast();
 
   useEffect(() => {
@@ -28,22 +32,36 @@ export function ContactForm({ topic, defaultSubject }: { topic?: string; default
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} action={formAction} onSubmit={f.onSubmit} noValidate className="space-y-4">
       {topic && <input type="hidden" name="topic" value={topic} />}
       {/* Honeypot for bots — hidden from people and screen readers */}
       <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" />
       <div className="grid gap-4 sm:grid-cols-2">
-        <input name="name" defaultValue={state.values?.name} required autoComplete="name" placeholder="Your name" aria-label="Your name" className={field} />
-        <input name="email" defaultValue={state.values?.email} required type="email" autoComplete="email" placeholder="Your email" aria-label="Your email" className={field} />
+        <Field label="Your name" hint="5–10 letters (A–Z)" {...f.field("name")}>
+          {(a11y) => <input {...a11y} {...bind("name")} autoComplete="name" maxLength={20} placeholder="e.g. Ayesha" className={control} />}
+        </Field>
+        <Field label="Email" {...f.field("email")}>
+          {(a11y) => (
+            <input {...a11y} {...bind("email")} type="email" autoComplete="email" spellCheck={false} placeholder="you@example.com" className={control} />
+          )}
+        </Field>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <input name="phone" defaultValue={state.values?.phone} type="tel" autoComplete="tel" placeholder="Phone (optional)" aria-label="Phone" className={field} />
-        <input name="subject" defaultValue={state.values?.subject ?? defaultSubject} placeholder="Subject" aria-label="Subject" className={field} />
+        <Field label="Phone (optional)" hint="03XX XXXXXXX, 92… or +country code" {...f.field("phone")}>
+          {(a11y) => (
+            <input {...a11y} {...bind("phone", phoneChars)} type="tel" inputMode="tel" autoComplete="tel" maxLength={20} placeholder="0300 1234567" className={control} />
+          )}
+        </Field>
+        <Field label="Subject (optional)" {...f.field("subject")}>
+          {(a11y) => <input {...a11y} {...bind("subject")} maxLength={200} placeholder="What's it about?" className={control} />}
+        </Field>
       </div>
-      <textarea name="message" defaultValue={state.values?.message} required rows={5} placeholder="Your message" aria-label="Your message" className={field} />
-      {state.error && (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
-      )}
+      <Field label="Your message" multiline {...f.field("message")}>
+        {(a11y) => (
+          <textarea {...a11y} {...bind("message")} rows={5} maxLength={5000} placeholder="How can we help?" className={`${control} resize-y`} />
+        )}
+      </Field>
+      {state.error && <AuthAlert>{state.error}</AuthAlert>}
       <button
         type="submit"
         disabled={pending}
