@@ -1399,3 +1399,13 @@ Owner's test feedback on the Custom form:
   2. Update `SMTP_PASS` in the local `.env` and in Vercel → Settings → Environment Variables (Production).
   3. Redeploy.
   4. Re-test sign-up.
+- **Fixed (same day):**
+  - The owner created a new App Password and updated the local `.env` and Vercel. Local `nodemailer.verify()` → OK.
+  - Pushed `33d38a4` (redeploy picks up the new env).
+  - **Local full sign-up:** the code email was sent and the page went to `/register/verify`.
+    - The local DB's code hash was set to a known test code, entered in the browser.
+    - The account was created (`emailVerifiedAt` set), the user was signed in and landed on `/account`.
+    - The test customer was deleted afterwards.
+  - **Live step 1:** the code email was sent and the page went to `/register/verify` (before: "couldn't send the code").
+    - The leftover live `EmailVerification` row for the test address (`zariera.qa.signup@gmail.com`) was deleted.
+    - No live account was created.
