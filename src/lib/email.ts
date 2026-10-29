@@ -248,6 +248,15 @@ export async function sendOtpEmail(
     return { ok: true };
   } catch (err) {
     console.error("[email] Failed to send verification code:", err);
-    return { ok: false, error: "We couldn't send the code. Please check your email address and try again." };
+    // Only a rejected recipient is the shopper's to fix; login / connection
+    // failures (e.g. a revoked Gmail App Password) are ours.
+    const e = err as { code?: string; responseCode?: number; rejected?: string[] };
+    const badRecipient = e.code === "EENVELOPE" || Boolean(e.rejected?.length) || (e.responseCode ?? 0) === 550;
+    return {
+      ok: false,
+      error: badRecipient
+        ? "We couldn't send the code to that address. Please check your email and try again."
+        : "We can't send verification emails right now. Please try again in a little while or contact us.",
+    };
   }
 }

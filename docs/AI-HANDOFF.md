@@ -1380,3 +1380,22 @@ Owner's test feedback on the Custom form:
   - The order path is not tested end-to-end: local customers are copies of real people, so a test order would email
     a real customer.
   - tsc and eslint are clean.
+
+### 2026-10-29 — Sign-up fails: Gmail rejects the SMTP App Password (Claude)
+- **Owner report:** "Create account" doesn't work even with every field filled.
+- **Reproduced** in headless Chrome, locally and on live. Step 1 of sign-up (email the 6-digit code) fails with:
+  `[email] Failed to send verification code: Error: Invalid login: 535-5.7.8 Username and Password not accepted`
+  - The form's validation was fine (no red fields).
+  - No account or `EmailVerification` row is written, because `issueCode` returns before the upsert.
+- **Cause:** the Gmail App Password in `SMTP_PASS` (smtp.gmail.com:587; 16 letters, so the right shape) is no longer
+  accepted by Google. It was probably revoked, or the Google password / 2-Step Verification changed.
+  - Live (Vercel env) has the same problem, so every email is failing: sign-up codes, order emails, contact alerts
+    and password resets.
+- **Code change:** `sendOtpEmail` no longer tells the shopper to "check your email address" when the failure is ours.
+  - A login or connection error now says "We can't send verification emails right now…".
+  - Only a rejected recipient (EENVELOPE / 550) asks them to check their address.
+- **Owner to-do (needs the owner's Google account; the AI does not log into it):**
+  1. Create a new App Password.
+  2. Update `SMTP_PASS` in the local `.env` and in Vercel → Settings → Environment Variables (Production).
+  3. Redeploy.
+  4. Re-test sign-up.
