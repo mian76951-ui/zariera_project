@@ -1365,3 +1365,18 @@ Owner's test feedback on the Custom form:
     up to 3 "TEST … Claude QA" notification emails.)
 - **Note:** a submit takes 8–12 s locally because the action waits for the SMTP notification email before answering.
   Worth checking on live; if it's slow there too, send the email without blocking the reply.
+
+### 2026-10-29 — Notification emails sent in the background with `after()` (Claude)
+- **Problem:** the Contact / Custom forms (and checkout) waited for the SMTP email before answering, about 8–12 s locally.
+- **Fix:** Next 16 `after()` from `next/server` runs the work after the reply has gone out. On Vercel it is kept alive with
+  waitUntil.
+  - `sendContactNotification` uses it in `inbound-actions.ts` (contact + custom).
+  - `sendOrderEmails` uses it in `lib/orders.ts`. `createOrder` is only called from the `/api/orders` route handler.
+- **Unchanged:** OTP and password-reset emails are still awaited. Their result decides what the user is told.
+- **Tested locally:**
+  - Contact form: "Thank you" showed 0.5 s after Send (was ~12 s). The action took 53 ms.
+  - No `[email] Failed` line in the log afterwards, so the owner email went out in the background.
+  - The QA message was deleted.
+  - The order path is not tested end-to-end: local customers are copies of real people, so a test order would email
+    a real customer.
+  - tsc and eslint are clean.

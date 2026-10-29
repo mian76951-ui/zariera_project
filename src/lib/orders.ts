@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "./prisma";
 import { shippingFor } from "./settings-shared";
 import { getStoreSettings } from "./settings";
+import { after } from "next/server";
 import { sendOrderEmails } from "./email";
 import { refreshCatalog } from "./cache-tags";
 
@@ -183,24 +184,27 @@ export async function createOrder(
     // (Admins see new orders via the dashboard bell, which polls /api/admin/orders/latest.)
 
     // Order is safely saved. Email is best-effort — never fail a saved order
-    // just because SMTP is unavailable.
-    try {
-      await sendOrderEmails({
-        orderNumber,
-        customerName: data.customerName,
-        email,
-        phone: data.phone,
-        address: data.address,
-        city: data.city,
-        paymentMethod: data.paymentMethod,
-        items: lineItems.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
-        subtotal,
-        shipping,
-        total,
-      });
-    } catch (emailErr) {
-      console.error("[order] email send failed (order still saved):", emailErr);
-    }
+    // just because SMTP is unavailable — and it goes out after the reply, so
+    // the shopper reaches the confirmation page without waiting on SMTP.
+    after(async () => {
+      try {
+        await sendOrderEmails({
+          orderNumber,
+          customerName: data.customerName,
+          email,
+          phone: data.phone,
+          address: data.address,
+          city: data.city,
+          paymentMethod: data.paymentMethod,
+          items: lineItems.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
+          subtotal,
+          shipping,
+          total,
+        });
+      } catch (emailErr) {
+        console.error("[order] email send failed (order still saved):", emailErr);
+      }
+    });
 
     return { ok: true, orderNumber, total };
   } catch (err) {

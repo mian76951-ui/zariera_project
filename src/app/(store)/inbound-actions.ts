@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { clientIp, rateLimit, TOO_MANY } from "@/lib/rate-limit";
 import { sendContactNotification } from "@/lib/email";
@@ -62,7 +63,8 @@ export async function sendContactMessage(_prev: InboundState, formData: FormData
     return { error: "We couldn't send your message right now. Please try again shortly.", values };
   }
 
-  await sendContactNotification(d);
+  // The owner alert goes out after the reply, so the visitor isn't kept waiting on SMTP.
+  after(() => sendContactNotification(d));
   return { ok: true };
 }
 
@@ -126,7 +128,7 @@ export async function sendCustomRequest(_prev: InboundState, formData: FormData)
     return { error: "We couldn't send your request right now. Please try again shortly.", values };
   }
 
-  await sendContactNotification({ name: d.name, email: d.email, phone: d.phone, subject, message, topic: "custom" });
+  after(() => sendContactNotification({ name: d.name, email: d.email, phone: d.phone, subject, message, topic: "custom" }));
   return { ok: true };
 }
 
