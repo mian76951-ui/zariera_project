@@ -12,11 +12,16 @@ import {
   SecureNote,
   useAuthForm,
 } from "@/components/auth/auth-field";
-import { emailError, nameError, newPasswordError } from "@/lib/auth-rules";
+import { confirmPasswordError, emailError, nameError, newPasswordError } from "@/lib/auth-rules";
 
 const initial: AuthState = {};
 
-const VALIDATE = { name: nameError, email: emailError, password: newPasswordError };
+const VALIDATE = {
+  name: nameError,
+  email: emailError,
+  password: newPasswordError,
+  confirmPassword: (v: string, all: Record<string, string>) => confirmPasswordError(v, all.password ?? ""),
+};
 
 export function RegisterForm({ next }: { next?: string }) {
   const [state, formAction, pending] = useActionState(registerAction, initial);
@@ -71,6 +76,16 @@ export function RegisterForm({ next }: { next?: string }) {
         >
           <PasswordStrength value={f.value("password")} highlight={password.status === "invalid"} />
         </AuthField>
+        <AuthField
+          name="confirmPassword"
+          label="Confirm password"
+          icon="lock"
+          password
+          autoComplete="new-password"
+          placeholder="Re-enter your password"
+          {...f.bind("confirmPassword")}
+          {...f.field("confirmPassword")}
+        />
 
         {state.error && <AuthAlert>{state.error}</AuthAlert>}
 

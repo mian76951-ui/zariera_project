@@ -1459,3 +1459,23 @@ Owner's test feedback on the Custom form:
   - At 390px the bubble spans x 54→321 of 390. The tail is at x 218 and the icon at x 219.
   - At 1280px the tail is at x 712 and the icon at x 713.
   - tsc and eslint are clean.
+
+### 2026-11-12 — Confirm password on Create Account and Reset Password (Claude)
+- **Client report:** Create Account had name, email and password, but no "Confirm password". A typo in the password
+  locks the shopper out of the new account.
+- **Fix:**
+  - **Rule:** `confirmPasswordError(value, password)` in `lib/auth-rules.ts` returns
+    "Please confirm your password" or "Passwords don't match".
+  - **Validators:** `useAuthForm` now passes every field's value to each rule as a 2nd argument, for cross-field
+    checks. One-argument rules are unchanged.
+  - **Forms:** `register-form.tsx` gets a "Confirm password" box under the password strength meter;
+    `password-reset-forms.tsx` gets "Confirm new password". Both are live green / red and use the red-icon bubble.
+  - **Server:** `register()` and `resetPasswordAction()` check the match too, so it is enforced with JavaScript off.
+    `register()` checks before any code email is sent.
+  - The bubble's "!" badge is now `aria-hidden`, so screen readers only read the message.
+- **Tested** (headless Chrome, owner's `next dev`, 390px):
+  - Empty confirm → "Please confirm your password"; a mismatch → "Passwords don't match". Both block Continue.
+  - A match turns green. Editing the first password afterwards turns the confirm box red again.
+  - The reset page behaves the same. With JS off, the server replied "Passwords don't match".
+  - No horizontal scroll. tsc and eslint are clean.
+  - A valid sign-up was not submitted, because it would send a real code email.

@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/password";
-import { emailError, nameError, newPasswordError } from "@/lib/auth-rules";
+import { confirmPasswordError, emailError, nameError, newPasswordError } from "@/lib/auth-rules";
 import { startCustomerSession, endCustomerSession, safeNext } from "@/lib/customer-auth";
 import { clientIp, rateLimit, TOO_MANY } from "@/lib/rate-limit";
 import { createToken, readToken } from "@/lib/session-token";
@@ -56,6 +56,7 @@ async function register(_prev: AuthState, formData: FormData): Promise<AuthState
     ["name", nameError(name)],
     ["email", emailError(email)],
     ["password", newPasswordError(password)],
+    ["confirmPassword", confirmPasswordError(String(formData.get("confirmPassword") ?? ""), password)],
   ]);
   if (invalid) return invalid;
 
@@ -289,6 +290,8 @@ export async function resetPasswordAction(_prev: AuthState, formData: FormData):
   const password = String(formData.get("password") ?? "");
   const weak = newPasswordError(password);
   if (weak) return { error: weak, fields: ["password"] };
+  const mismatch = confirmPasswordError(String(formData.get("confirmPassword") ?? ""), password);
+  if (mismatch) return { error: mismatch, fields: ["confirmPassword"] };
 
   const data = readToken<ResetToken>("reset", token);
   const invalid = { error: "This reset link is invalid or has expired. Please request a new one." };

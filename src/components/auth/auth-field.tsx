@@ -119,7 +119,7 @@ function ErrorTip({ message, className }: { message: string; className: string }
         {/* Tail — behind the bubble, so only its point shows */}
         <span className="absolute -bottom-[5px] right-[calc(var(--tail)-6px)] h-3 w-3 rotate-45 rounded-[2px] bg-maroon-2 shadow-[1px_1px_0_0_rgba(195,154,78,0.35)]" />
         <span className="relative flex items-start gap-2.5 rounded-2xl bg-gradient-to-br from-[#6b2133] via-maroon to-wine-deep px-3.5 py-2.5 text-left text-[0.8rem] font-medium leading-snug text-light shadow-[0_18px_36px_-16px_rgba(38,8,16,0.85)] ring-1 ring-gold/35">
-          <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gold-hi text-[0.65rem] font-bold leading-none text-maroon">!</span>
+          <span aria-hidden="true" className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gold-hi text-[0.65rem] font-bold leading-none text-maroon">!</span>
           {message}
         </span>
       </span>
@@ -138,7 +138,8 @@ export function FieldError({ id, children }: { id: string; children: ReactNode }
 }
 
 type ServerState = { error?: string; fields?: string[] };
-type Validators = Record<string, (value: string) => string | null>;
+/** A rule gets its own value plus every field's value (for "Confirm password"). */
+type Validators = Record<string, (value: string, values: Record<string, string>) => string | null>;
 
 /** Field values, live status, client-side check before submit and the shake —
  *  shared by the sign-in / sign-up / reset forms.
@@ -193,7 +194,7 @@ export function useAuthForm(
       name: string,
       { positive = true }: { positive?: boolean } = {}
     ): { status: FieldStatus; error: string | null; tip: string | null } {
-      const err = validators[name]?.(value(name)) ?? null;
+      const err = validators[name]?.(value(name), values) ?? null;
       if (serverBad.includes(name)) return { status: "invalid", error: null, tip: state.error ?? null };
       if ((touched[name] || submitted) && err) return { status: "invalid", error: err, tip: err };
       if (positive && value(name) && !err) return { status: "valid", error: null, tip: null };
@@ -201,7 +202,7 @@ export function useAuthForm(
     },
     onSubmit(e: FormEvent<HTMLFormElement>) {
       e.preventDefault();
-      const bad = Object.keys(validators).filter((k) => validators[k](value(k)));
+      const bad = Object.keys(validators).filter((k) => validators[k](value(k), values));
       if (bad.length) {
         setSubmitted(true);
         shake();

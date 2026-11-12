@@ -134,6 +134,12 @@ export function newPasswordError(value: string): string | null {
   return missing ? `Password needs ${missing.label.toLowerCase()}` : null;
 }
 
+/** "Confirm password" box: required and identical to the new password. */
+export function confirmPasswordError(value: string, password: string): string | null {
+  if (!value) return "Please confirm your password";
+  return value === password ? null : "Passwords don't match";
+}
+
 /** 0–4: drives the strength meter (rules met, plus a bonus for length / symbols). */
 export function passwordStrength(value: string): number {
   if (!value) return 0;
