@@ -53,13 +53,14 @@ export function LoginForm({ next }: { next?: string }) {
           autoComplete="current-password"
           placeholder="Your password"
           {...f.bind("password")}
-          labelAside={
+          {...password}
+        >
+          <div className="mt-2 text-right">
             <Link href="/forgot-password" className="text-xs font-medium text-gold-deep hover:underline">
               Forgot password?
             </Link>
-          }
-          {...password}
-        />
+          </div>
+        </AuthField>
 
         {state.error && <AuthAlert>{state.error}</AuthAlert>}
 

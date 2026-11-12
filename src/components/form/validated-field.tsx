@@ -28,6 +28,7 @@ export function Field({
   label,
   status,
   error,
+  tip,
   hint,
   multiline = false,
   children,
@@ -35,6 +36,8 @@ export function Field({
   label: string;
   status: FieldStatus;
   error: string | null;
+  /** Hover text for the red icon; falls back to `error`. */
+  tip?: string | null;
   hint?: string;
   multiline?: boolean;
   children: (a11y: { id: string; "aria-invalid": boolean; "aria-describedby"?: string }) => ReactNode;
@@ -49,7 +52,7 @@ export function Field({
       </label>
       <div className={`relative flex rounded-lg border bg-surface transition ${multiline ? "items-start" : "items-center"} ${statusRing(status)}`}>
         {children({ id, "aria-invalid": status === "invalid", "aria-describedby": showError ? errId : undefined })}
-        <StatusIcon status={status} className={multiline ? "mr-3 mt-2.5" : "mr-3"} />
+        <StatusIcon status={status} message={tip ?? error} className={multiline ? "mr-3 mt-2.5" : "mr-3"} />
       </div>
       {showError ? <FieldError id={errId}>{error}</FieldError> : hint && <p className="mt-1.5 text-xs text-muted">{hint}</p>}
     </div>

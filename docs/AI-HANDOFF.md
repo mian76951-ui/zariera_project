@@ -1425,3 +1425,23 @@ Owner's test feedback on the Custom form:
 - **Tested:** `searchCatalog` on sample products. "r" / "ri" / "rin" → ring; "b" → bangle + butterfly ring;
   "a" → Amber necklace; "zx", "q" → nothing. "necklecs", "gold ring" and "under 3000" work as before.
   tsc and eslint are clean. Not yet checked in the browser.
+
+### 2026-11-12 — Sign-in: "Forgot password?" under the password box; hover message on red field icons (Claude)
+- **Client report:**
+  1. On sign-in, "Forgot password?" sat above the password box (in the label row). It should be below it.
+  2. Hovering the red error icon inside a field showed nothing. It should say what's wrong.
+- **Fix 1 (`components/auth/login-form.tsx`):** the link now renders under the password box, right-aligned.
+  - It goes through `AuthField`'s `children` slot.
+  - The now-unused `labelAside` prop was removed from `AuthField`.
+- **Fix 2 (`components/auth/auth-field.tsx`, `components/form/validated-field.tsx`):**
+  - `StatusIcon` takes a `message`. The red icon shows it in a small tooltip on hover.
+  - The icon is focusable (`tabIndex=0`), so a tap on a phone or keyboard focus shows it too.
+  - The tooltip is anchored to the field box, right-aligned, and never wider than the box, so it never leaves a phone screen.
+  - `useAuthForm().field()` now also returns `tip`: the rule message, or the server's message when the server flagged the field. Example: wrong password → both icons say "Incorrect email or password. Please try again." Before, the icon had nothing to say there.
+  - Applies to sign-in, sign-up, reset password, Contact and Custom forms. They all spread `f.field()`, so no form file changed.
+- **Tested** (headless Chrome, `next dev`, 390px wide):
+  - The link sits 14px under the password box and goes to `/forgot-password`.
+  - The tooltip shows the right message for a bad email, an empty password and a server-rejected sign-in. The Contact form has 3 icons with messages.
+  - The tooltip stays inside the screen (x 53→321 of 390). There is no horizontal scroll.
+  - tsc and eslint are clean.
+  - **Note for future testing:** Tailwind v4 puts `group-hover` inside `@media (hover: hover)`. Headless Chrome reports no hover device, so mouse hover can't be shown there. The focus path (same tooltip) was verified instead. Confirm mouse hover once in a real desktop browser.

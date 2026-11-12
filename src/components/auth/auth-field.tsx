@@ -73,16 +73,29 @@ export function statusRing(status: FieldStatus): string {
       : "border-[var(--line-strong)] focus-within:border-gold focus-within:ring-[3px] focus-within:ring-[rgba(195,154,78,0.22)]";
 }
 
-/** Green tick / red alert at the end of a field box. */
-export function StatusIcon({ status, className = "" }: { status: FieldStatus; className?: string }) {
+/** Green tick / red alert at the end of a field box. Hovering (or tapping) the
+ *  red alert shows `message` in a small tooltip above the (relative) field box,
+ *  so it never runs off a phone screen. */
+export function StatusIcon({ status, message, className = "" }: { status: FieldStatus; message?: string | null; className?: string }) {
   if (status === "valid")
     return (
       <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ok text-white ${className}`}>
         <CheckIcon className="h-3.5 w-3.5" />
       </span>
     );
-  if (status === "invalid") return <AlertIcon className={`h-5 w-5 shrink-0 text-bad ${className}`} />;
-  return null;
+  if (status !== "invalid") return null;
+  if (!message) return <AlertIcon className={`h-5 w-5 shrink-0 text-bad ${className}`} />;
+  return (
+    <span tabIndex={0} aria-label={message} className={`group/tip flex shrink-0 cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-bad/40 ${className}`}>
+      <AlertIcon className="h-5 w-5 text-bad" />
+      <span
+        role="tooltip"
+        className="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-2 w-max max-w-[min(16rem,100%)] rounded-lg border border-bad/30 bg-surface px-3 py-2 text-xs font-medium leading-snug text-bad opacity-0 shadow-[0_12px_28px_-14px_rgba(38,8,16,0.6)] transition group-hover/tip:visible group-hover/tip:opacity-100 group-focus/tip:visible group-focus/tip:opacity-100"
+      >
+        {message}
+      </span>
+    </span>
+  );
 }
 
 /** Red message under an invalid field. */
@@ -145,13 +158,17 @@ export function useAuthForm(
       onChange: (v: string) => set(name, v),
       onBlur: () => blur(name),
     }),
-    /** `positive: false` = never show green (e.g. a sign-in password we can't judge). */
-    field(name: string, { positive = true }: { positive?: boolean } = {}): { status: FieldStatus; error: string | null } {
+    /** `positive: false` = never show green (e.g. a sign-in password we can't judge).
+     *  `tip` is what the red icon says on hover — the server's message when it flagged the field. */
+    field(
+      name: string,
+      { positive = true }: { positive?: boolean } = {}
+    ): { status: FieldStatus; error: string | null; tip: string | null } {
       const err = validators[name]?.(value(name)) ?? null;
-      if (serverBad.includes(name)) return { status: "invalid", error: null };
-      if ((touched[name] || submitted) && err) return { status: "invalid", error: err };
-      if (positive && value(name) && !err) return { status: "valid", error: null };
-      return { status: "idle", error: null };
+      if (serverBad.includes(name)) return { status: "invalid", error: null, tip: state.error ?? null };
+      if ((touched[name] || submitted) && err) return { status: "invalid", error: err, tip: err };
+      if (positive && value(name) && !err) return { status: "valid", error: null, tip: null };
+      return { status: "idle", error: null, tip: null };
     },
     onSubmit(e: FormEvent<HTMLFormElement>) {
       e.preventDefault();
@@ -182,7 +199,7 @@ export function AuthField({
   autoComplete,
   placeholder,
   password = false,
-  labelAside,
+  tip,
   children,
 }: {
   name: string;
@@ -199,8 +216,9 @@ export function AuthField({
   placeholder?: string;
   /** Adds a show / hide toggle. */
   password?: boolean;
-  /** Small element at the right of the label row (e.g. "Forgot password?"). */
-  labelAside?: ReactNode;
+  /** Hover text for the red icon; falls back to `error`. */
+  tip?: string | null;
+  /** Rendered under the field (e.g. "Forgot password?"). */
   children?: ReactNode;
 }) {
   const id = useId();
@@ -212,12 +230,9 @@ export function AuthField({
 
   return (
     <div>
-      <div className="mb-1.5 flex items-baseline justify-between gap-2">
-        <label htmlFor={id} className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted">
-          {label}
-        </label>
-        {labelAside}
-      </div>
+      <label htmlFor={id} className="mb-1.5 block text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted">
+        {label}
+      </label>
 
       <div className={`group relative flex items-center rounded-xl border bg-surface shadow-[inset_0_1px_2px_rgba(38,8,16,0.05)] transition ${ring}`}>
         <Svg className={`pointer-events-none ml-3.5 h-[1.15rem] w-[1.15rem] shrink-0 transition-colors ${iconColor}`}>
@@ -237,7 +252,7 @@ export function AuthField({
           spellCheck={false}
           className="min-w-0 flex-1 bg-transparent px-3 py-3.5 text-[0.95rem] text-ink outline-none placeholder:text-muted/55"
         />
-        <StatusIcon status={status} className="mr-1" />
+        <StatusIcon status={status} message={tip ?? error} className="mr-1" />
         {password ? (
           <RevealToggle shown={show} onToggle={() => setShow((v) => !v)} />
         ) : (
