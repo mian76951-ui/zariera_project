@@ -1479,3 +1479,14 @@ Owner's test feedback on the Custom form:
   - The reset page behaves the same. With JS off, the server replied "Passwords don't match".
   - No horizontal scroll. tsc and eslint are clean.
   - A valid sign-up was not submitted, because it would send a real code email.
+
+### 2026-11-12 — Client fixes 1–4 pushed live (Claude)
+- The owner asked to push. `main` went to origin; Vercel redeploys from it. Commits in this push:
+  - `5145442` search from the first letter.
+  - `37f70ae` "Forgot password?" under the password box and the red-icon hover message.
+  - `a382ee9` premium speech-bubble look.
+  - `be6f20f` Confirm password on Create Account and Reset Password.
+- **Live checks still to do after the deploy:**
+  - Type one letter in search.
+  - Hover a red icon on `/login`.
+  - Try a mismatched confirm password on `/register`.
