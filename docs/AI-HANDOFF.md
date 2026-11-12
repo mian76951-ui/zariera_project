@@ -1445,3 +1445,17 @@ Owner's test feedback on the Custom form:
   - The tooltip stays inside the screen (x 53→321 of 390). There is no horizontal scroll.
   - tsc and eslint are clean.
   - **Note for future testing:** Tailwind v4 puts `group-hover` inside `@media (hover: hover)`. Headless Chrome reports no hover device, so mouse hover can't be shown there. The focus path (same tooltip) was verified instead. Confirm mouse hover once in a real desktop browser.
+
+### 2026-11-12 — Premium look for the red-icon message bubble (Claude)
+- **Owner feedback:** the hover message worked, but the plain red box looked off. They asked for a speech-bubble shape,
+  a modern / premium look, and less red everywhere.
+- **Change (`components/auth/auth-field.tsx`):** the tooltip is now an `ErrorTip` speech bubble.
+  - Maroon → wine gradient, ivory text and a thin gold ring.
+  - A small gold "!" badge before the message.
+  - It fades and slides up with a small scale-in.
+  - A tail at the bottom points at the red icon. The bubble stays right-aligned to the field box, so it never leaves
+    the screen. The tail position is measured on hover / focus, because on password boxes the icon sits left of "Show".
+- **Tested** (headless Chrome, owner's `next dev`, wrong-password sign-in, focus path):
+  - At 390px the bubble spans x 54→321 of 390. The tail is at x 218 and the icon at x 219.
+  - At 1280px the tail is at x 712 and the icon at x 713.
+  - tsc and eslint are clean.

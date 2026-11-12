@@ -74,8 +74,7 @@ export function statusRing(status: FieldStatus): string {
 }
 
 /** Green tick / red alert at the end of a field box. Hovering (or tapping) the
- *  red alert shows `message` in a small tooltip above the (relative) field box,
- *  so it never runs off a phone screen. */
+ *  red alert shows `message` in a speech bubble (see ErrorTip). */
 export function StatusIcon({ status, message, className = "" }: { status: FieldStatus; message?: string | null; className?: string }) {
   if (status === "valid")
     return (
@@ -85,14 +84,44 @@ export function StatusIcon({ status, message, className = "" }: { status: FieldS
     );
   if (status !== "invalid") return null;
   if (!message) return <AlertIcon className={`h-5 w-5 shrink-0 text-bad ${className}`} />;
+  return <ErrorTip message={message} className={className} />;
+}
+
+/** Maroon speech bubble above the (relative) field box: right-aligned to the
+ *  box so it never runs off a phone screen, with its tail measured to point at
+ *  the icon (which sits left of "Show" on password fields). */
+function ErrorTip({ message, className }: { message: string; className: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [tail, setTail] = useState(14);
+  const aim = () => {
+    const icon = ref.current;
+    const box = icon?.offsetParent;
+    if (!icon || !box) return;
+    const i = icon.getBoundingClientRect();
+    setTail(Math.round(box.getBoundingClientRect().right - (i.left + i.width / 2)));
+  };
+
   return (
-    <span tabIndex={0} aria-label={message} className={`group/tip flex shrink-0 cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-bad/40 ${className}`}>
-      <AlertIcon className="h-5 w-5 text-bad" />
+    <span
+      ref={ref}
+      tabIndex={0}
+      aria-label={message}
+      onPointerEnter={aim}
+      onFocus={aim}
+      className={`group/tip flex shrink-0 cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-bad/40 ${className}`}
+    >
+      <AlertIcon className="h-5 w-5 text-bad transition-transform duration-200 group-hover/tip:scale-110" />
       <span
         role="tooltip"
-        className="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-2 w-max max-w-[min(16rem,100%)] rounded-lg border border-bad/30 bg-surface px-3 py-2 text-xs font-medium leading-snug text-bad opacity-0 shadow-[0_12px_28px_-14px_rgba(38,8,16,0.6)] transition group-hover/tip:visible group-hover/tip:opacity-100 group-focus/tip:visible group-focus/tip:opacity-100"
+        style={{ "--tail": `${tail}px` } as React.CSSProperties}
+        className="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-3 w-max max-w-[min(17rem,100%)] origin-[calc(100%-var(--tail))_bottom] translate-y-1 scale-95 opacity-0 transition-all duration-200 ease-out group-hover/tip:visible group-hover/tip:translate-y-0 group-hover/tip:scale-100 group-hover/tip:opacity-100 group-focus/tip:visible group-focus/tip:translate-y-0 group-focus/tip:scale-100 group-focus/tip:opacity-100"
       >
-        {message}
+        {/* Tail — behind the bubble, so only its point shows */}
+        <span className="absolute -bottom-[5px] right-[calc(var(--tail)-6px)] h-3 w-3 rotate-45 rounded-[2px] bg-maroon-2 shadow-[1px_1px_0_0_rgba(195,154,78,0.35)]" />
+        <span className="relative flex items-start gap-2.5 rounded-2xl bg-gradient-to-br from-[#6b2133] via-maroon to-wine-deep px-3.5 py-2.5 text-left text-[0.8rem] font-medium leading-snug text-light shadow-[0_18px_36px_-16px_rgba(38,8,16,0.85)] ring-1 ring-gold/35">
+          <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gold-hi text-[0.65rem] font-bold leading-none text-maroon">!</span>
+          {message}
+        </span>
       </span>
     </span>
   );
