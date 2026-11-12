@@ -135,15 +135,15 @@ export function searchCatalog(
   categories: SearchCategory[]
 ): SearchResult {
   const { min, max, rest } = parsePrice(fold(query));
-  const raw = words(rest).filter((w) => !STOP.has(w) && !/^\d+$/.test(w));
+  const isNum = (w: string) => /^\d+$/.test(w);
+  const typed = words(rest);
+  const raw = typed.filter((w) => !STOP.has(w) && !isNum(w));
   const onSale = raw.some((w) => SALE_WORDS.has(w));
   const terms = raw.filter((w) => !SALE_WORDS.has(w)).map((w) => ALIASES[w] ?? w);
   // Still typing a first short word that happens to be a stop word ("a", "on"):
   // treat it as a prefix instead of listing the whole catalog.
-  if (terms.length === 0 && !onSale && min == null && max == null) {
-    const last = words(rest).at(-1);
-    if (last && !/^\d+$/.test(last)) terms.push(last);
-  }
+  const last = typed.at(-1);
+  if (terms.length === 0 && !onSale && min == null && max == null && last && !isNum(last)) terms.push(last);
 
   // Words the catalog knows; typos are corrected towards names / categories / materials only.
   const vocab = new Set<string>();
@@ -156,7 +156,8 @@ export function searchCatalog(
 
   const corrections: { from: string; to: string }[] = [];
   const fixed = terms.map((t) => {
-    if (known.has(t) || [...known].some((v) => v.startsWith(t))) return t;
+    if (known.has(t)) return t;
+    for (const v of known) if (v.startsWith(t)) return t;
     let best = "";
     let bestScore = 0;
     for (const v of vocab) {
@@ -195,9 +196,9 @@ export function searchCatalog(
       const isCategoryWord = (CATEGORY_HINTS[t] ?? t) === categoryWord;
       // "necklace" shouldn't pull in a ring whose description mentions necklaces.
       // 1–2 letters only match name / category / material, or "g" would hit every description.
-      const usable = (isCategoryWord && p.category.slug !== category!.slug) || t.length < 3 ? fields.slice(0, 3) : fields;
+      const n = (isCategoryWord && p.category.slug !== category!.slug) || t.length < 3 ? 3 : fields.length;
       let best = 0;
-      for (const f of usable) for (const w of f.words) best = Math.max(best, similarity(t, w) * f.weight);
+      for (let i = 0; i < n; i++) for (const w of fields[i].words) best = Math.max(best, similarity(t, w) * fields[i].weight);
       if (isCategoryWord && p.category.slug === category!.slug) {
         // In the category; pieces whose name says it too ("… Bangle" for "bangles") come first.
         const named = fields[0].words.some((w) => similarity(t, w) > 0);

@@ -1490,3 +1490,29 @@ Owner's test feedback on the Custom form:
   - Type one letter in search.
   - Hover a red icon on `/login`.
   - Try a mismatched confirm password on `/register`.
+
+### 2026-11-12 — Cleanup pass on today's fixes (/simplify) (Claude)
+- **What:** a review of today's commits for reuse, simplification, efficiency and altitude. No behaviour change.
+- **Search (`lib/search-engine.ts`):**
+  - The typo step loops over the vocabulary Set instead of copying it into an array for every term on every keystroke.
+  - Short terms use a field bound instead of a `slice()` per product.
+  - The query is split into words once.
+- **Field messages:** `AuthField` / `Field` take `tip` (required) straight from `f.field()`. The dead `tip ?? error` fallback is gone.
+- **Confirm password:**
+  - `confirmPasswordRule` lives in `lib/auth-rules.ts`, and a shared `ConfirmPasswordField` in `auth-field.tsx` is used by register and reset.
+  - `resetPasswordAction` uses `firstFieldError`, like register.
+- **Bubble:**
+  - The tail offset is written as a CSS variable on hover / focus, so there is no React state or re-render per hover.
+  - The open state is one `tip-open` custom variant in `globals.css` instead of a hover + focus copy of 4 classes.
+  - Note: `tip-open` is not wrapped in `@media (hover: hover)`. On touch screens a tap already focuses the icon, so the bubble behaves the same.
+- **Skipped on purpose:**
+  - A "word being typed" redesign of search: it would change results for other short words.
+  - A minimum query length: the client wants results from the first letter.
+  - A shared `checkFields` for all auth actions: it reaches outside today's diff.
+  - A gradient token shared with `AuthSubmit`: the two styles are not identical.
+- **Tested:**
+  - Search sample queries give the same results as before.
+  - Headless Chrome on the owner's `next dev`:
+    - The login bubble shows the server message; the tail is at x 233 and the icon at x 234; the bubble is inside 390px and hides on blur.
+    - Register and reset: a mismatch shows "Passwords don't match", and a match turns green.
+  - tsc and eslint are clean.

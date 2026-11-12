@@ -288,10 +288,11 @@ export async function resetPasswordAction(_prev: AuthState, formData: FormData):
 
   const token = String(formData.get("token") ?? "");
   const password = String(formData.get("password") ?? "");
-  const weak = newPasswordError(password);
-  if (weak) return { error: weak, fields: ["password"] };
-  const mismatch = confirmPasswordError(String(formData.get("confirmPassword") ?? ""), password);
-  if (mismatch) return { error: mismatch, fields: ["confirmPassword"] };
+  const invalidField = firstFieldError([
+    ["password", newPasswordError(password)],
+    ["confirmPassword", confirmPasswordError(String(formData.get("confirmPassword") ?? ""), password)],
+  ]);
+  if (invalidField) return invalidField;
 
   const data = readToken<ResetToken>("reset", token);
   const invalid = { error: "This reset link is invalid or has expired. Please request a new one." };

@@ -3,6 +3,9 @@
 /* Dark mode is driven by <html data-theme="dark"> (set by the theme toggle) */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* Red field-icon message bubble: open while its icon (group/tip) is hovered or focused */
+@custom-variant tip-open (&:where(.group\/tip:is(:hover, :focus) *));
+
 /* ============================================================
    ZARIERA — stainless steel & artificial jewelry brand theme
    Warm cream + deep wine + antique gold (per client mockup)

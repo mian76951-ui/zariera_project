@@ -140,6 +140,10 @@ export function confirmPasswordError(value: string, password: string): string | 
   return value === password ? null : "Passwords don't match";
 }
 
+/** Form-validator shape of the above: compares against the form's `password` field. */
+export const confirmPasswordRule = (value: string, values: Record<string, string>) =>
+  confirmPasswordError(value, values.password ?? "");
+
 /** 0–4: drives the strength meter (rules met, plus a bonus for length / symbols). */
 export function passwordStrength(value: string): number {
   if (!value) return 0;

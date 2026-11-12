@@ -8,8 +8,8 @@ import {
   type AuthState,
 } from "@/app/(store)/auth-actions";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { AuthAlert, AuthField, AuthSubmit, PasswordStrength, useAuthForm } from "@/components/auth/auth-field";
-import { confirmPasswordError, emailError, newPasswordError } from "@/lib/auth-rules";
+import { AuthAlert, AuthField, AuthSubmit, ConfirmPasswordField, PasswordStrength, useAuthForm } from "@/components/auth/auth-field";
+import { confirmPasswordRule, emailError, newPasswordError } from "@/lib/auth-rules";
 
 const initial: AuthState = {};
 
@@ -60,7 +60,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   const [state, formAction, pending] = useActionState(resetPasswordAction, initial);
   const [formRef, f] = useAuthForm(formAction, state, {
     password: newPasswordError,
-    confirmPassword: (v, all) => confirmPasswordError(v, all.password ?? ""),
+    confirmPassword: confirmPasswordRule,
   });
   const password = f.field("password");
 
@@ -86,16 +86,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           >
             <PasswordStrength value={f.value("password")} highlight={password.status === "invalid"} />
           </AuthField>
-          <AuthField
-            name="confirmPassword"
-            label="Confirm new password"
-            icon="lock"
-            password
-            autoComplete="new-password"
-            placeholder="Re-enter your password"
-            {...f.bind("confirmPassword")}
-            {...f.field("confirmPassword")}
-          />
+          <ConfirmPasswordField f={f} label="Confirm new password" />
           {state.error && <AuthAlert>{state.error}</AuthAlert>}
           <AuthSubmit pending={pending} label="Update Password" pendingLabel="Saving…" />
         </form>

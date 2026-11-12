@@ -92,13 +92,13 @@ export function StatusIcon({ status, message, className = "" }: { status: FieldS
  *  the icon (which sits left of "Show" on password fields). */
 function ErrorTip({ message, className }: { message: string; className: string }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const [tail, setTail] = useState(14);
+  // Written straight onto the element (inherited by the bubble) — no re-render per hover.
   const aim = () => {
     const icon = ref.current;
     const box = icon?.offsetParent;
     if (!icon || !box) return;
     const i = icon.getBoundingClientRect();
-    setTail(Math.round(box.getBoundingClientRect().right - (i.left + i.width / 2)));
+    icon.style.setProperty("--tail", `${Math.round(box.getBoundingClientRect().right - (i.left + i.width / 2))}px`);
   };
 
   return (
@@ -108,13 +108,12 @@ function ErrorTip({ message, className }: { message: string; className: string }
       aria-label={message}
       onPointerEnter={aim}
       onFocus={aim}
-      className={`group/tip flex shrink-0 cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-bad/40 ${className}`}
+      className={`group/tip flex shrink-0 cursor-help [--tail:14px] rounded-full outline-none focus-visible:ring-2 focus-visible:ring-bad/40 ${className}`}
     >
       <AlertIcon className="h-5 w-5 text-bad transition-transform duration-200 group-hover/tip:scale-110" />
       <span
         role="tooltip"
-        style={{ "--tail": `${tail}px` } as React.CSSProperties}
-        className="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-3 w-max max-w-[min(17rem,100%)] origin-[calc(100%-var(--tail))_bottom] translate-y-1 scale-95 opacity-0 transition-all duration-200 ease-out group-hover/tip:visible group-hover/tip:translate-y-0 group-hover/tip:scale-100 group-hover/tip:opacity-100 group-focus/tip:visible group-focus/tip:translate-y-0 group-focus/tip:scale-100 group-focus/tip:opacity-100"
+        className="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-3 w-max max-w-[min(17rem,100%)] origin-[calc(100%-var(--tail))_bottom] translate-y-1 scale-95 opacity-0 transition-all duration-200 ease-out tip-open:visible tip-open:translate-y-0 tip-open:scale-100 tip-open:opacity-100"
       >
         {/* Tail — behind the bubble, so only its point shows */}
         <span className="absolute -bottom-[5px] right-[calc(var(--tail)-6px)] h-3 w-3 rotate-45 rounded-[2px] bg-maroon-2 shadow-[1px_1px_0_0_rgba(195,154,78,0.35)]" />
@@ -246,8 +245,8 @@ export function AuthField({
   placeholder?: string;
   /** Adds a show / hide toggle. */
   password?: boolean;
-  /** Hover text for the red icon; falls back to `error`. */
-  tip?: string | null;
+  /** Hover text for the red icon (from `f.field()`). */
+  tip: string | null;
   /** Rendered under the field (e.g. "Forgot password?"). */
   children?: ReactNode;
 }) {
@@ -282,7 +281,7 @@ export function AuthField({
           spellCheck={false}
           className="min-w-0 flex-1 bg-transparent px-3 py-3.5 text-[0.95rem] text-ink outline-none placeholder:text-muted/55"
         />
-        <StatusIcon status={status} message={tip ?? error} className="mr-1" />
+        <StatusIcon status={status} message={tip} className="mr-1" />
         {password ? (
           <RevealToggle shown={show} onToggle={() => setShow((v) => !v)} />
         ) : (
@@ -297,6 +296,22 @@ export function AuthField({
 }
 
 /** Checklist + 4-bar strength meter under a new-password field. */
+/** "Confirm password" box under a new-password field (rule: confirmPasswordRule). */
+export function ConfirmPasswordField({ f, label }: { f: ReturnType<typeof useAuthForm>[1]; label: string }) {
+  return (
+    <AuthField
+      name="confirmPassword"
+      label={label}
+      icon="lock"
+      password
+      autoComplete="new-password"
+      placeholder="Re-enter your password"
+      {...f.bind("confirmPassword")}
+      {...f.field("confirmPassword")}
+    />
+  );
+}
+
 export function PasswordStrength({ value, highlight }: { value: string; highlight?: boolean }) {
   const rules = passwordRules(value);
   const score = passwordStrength(value);

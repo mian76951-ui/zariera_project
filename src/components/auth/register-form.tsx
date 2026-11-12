@@ -8,11 +8,12 @@ import {
   AuthAlert,
   AuthField,
   AuthSubmit,
+  ConfirmPasswordField,
   PasswordStrength,
   SecureNote,
   useAuthForm,
 } from "@/components/auth/auth-field";
-import { confirmPasswordError, emailError, nameError, newPasswordError } from "@/lib/auth-rules";
+import { confirmPasswordRule, emailError, nameError, newPasswordError } from "@/lib/auth-rules";
 
 const initial: AuthState = {};
 
@@ -20,7 +21,7 @@ const VALIDATE = {
   name: nameError,
   email: emailError,
   password: newPasswordError,
-  confirmPassword: (v: string, all: Record<string, string>) => confirmPasswordError(v, all.password ?? ""),
+  confirmPassword: confirmPasswordRule,
 };
 
 export function RegisterForm({ next }: { next?: string }) {
@@ -76,16 +77,7 @@ export function RegisterForm({ next }: { next?: string }) {
         >
           <PasswordStrength value={f.value("password")} highlight={password.status === "invalid"} />
         </AuthField>
-        <AuthField
-          name="confirmPassword"
-          label="Confirm password"
-          icon="lock"
-          password
-          autoComplete="new-password"
-          placeholder="Re-enter your password"
-          {...f.bind("confirmPassword")}
-          {...f.field("confirmPassword")}
-        />
+        <ConfirmPasswordField f={f} label="Confirm password" />
 
         {state.error && <AuthAlert>{state.error}</AuthAlert>}
 
