@@ -1409,3 +1409,19 @@ Owner's test feedback on the Custom form:
   - **Live step 1:** the code email was sent and the page went to `/register/verify` (before: "couldn't send the code").
     - The leftover live `EmailVerification` row for the test address (`zariera.qa.signup@gmail.com`) was deleted.
     - No live account was created.
+
+### 2026-11-12 — Search shows matches from the first letter (Claude)
+- **Client report:** the search box only showed products after 2–3 letters. They should appear from the first letter.
+- **Cause:** the box already asked `/api/search` on every keystroke, but `lib/search-engine.ts` ignored 1–2 letter words:
+  - `similarity()` only matched a prefix from 3 letters on.
+  - The typo step only kept a prefix from 3 letters on, so short words got "corrected" into something else.
+  - Short stop words ("a", "on", "i") were dropped, so the whole catalog showed instead of matches.
+- **Fix (`lib/search-engine.ts` only):**
+  - Any-length prefix match: 1–2 letters score 0.75, 3+ letters 0.85. Typo tolerance still starts at 3 letters.
+  - 1–2 letters only match name / category / material, not description text, so "g" doesn't hit everything.
+  - If only a stop word was typed (and no price / sale words), it is used as a prefix.
+  - The same engine runs `/search` and the shop `?q=` filter, so both behave the same way.
+- **Unchanged:** an empty box shows no dropdown; no match shows "Nothing matches … yet".
+- **Tested:** `searchCatalog` on sample products. "r" / "ri" / "rin" → ring; "b" → bangle + butterfly ring;
+  "a" → Amber necklace; "zx", "q" → nothing. "necklecs", "gold ring" and "under 3000" work as before.
+  tsc and eslint are clean. Not yet checked in the browser.

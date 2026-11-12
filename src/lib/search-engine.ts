@@ -79,10 +79,10 @@ function distance(a: string, b: string, max: number): number {
   return d[a.length][b.length];
 }
 
-/** How well one query word matches one catalog word: 1 exact, 0.85 prefix, 0.65 typo, 0 none. */
+/** How well one query word matches one catalog word: 1 exact, 0.85 prefix (0.75 for 1–2 letters), 0.65 typo, 0 none. */
 function similarity(q: string, t: string): number {
   if (q === t) return 1;
-  if (q.length >= 3 && t.startsWith(q)) return 0.85;
+  if (t.startsWith(q)) return q.length >= 3 ? 0.85 : 0.75;
   if (q.length < 3 || (q.length === 3 && t.length < 4)) return 0;
   const allowed = q.length >= 7 ? 2 : 1;
   return distance(q, t, allowed) <= allowed ? 0.65 : 0;
@@ -138,6 +138,12 @@ export function searchCatalog(
   const raw = words(rest).filter((w) => !STOP.has(w) && !/^\d+$/.test(w));
   const onSale = raw.some((w) => SALE_WORDS.has(w));
   const terms = raw.filter((w) => !SALE_WORDS.has(w)).map((w) => ALIASES[w] ?? w);
+  // Still typing a first short word that happens to be a stop word ("a", "on"):
+  // treat it as a prefix instead of listing the whole catalog.
+  if (terms.length === 0 && !onSale && min == null && max == null) {
+    const last = words(rest).at(-1);
+    if (last && !/^\d+$/.test(last)) terms.push(last);
+  }
 
   // Words the catalog knows; typos are corrected towards names / categories / materials only.
   const vocab = new Set<string>();
@@ -150,7 +156,7 @@ export function searchCatalog(
 
   const corrections: { from: string; to: string }[] = [];
   const fixed = terms.map((t) => {
-    if (known.has(t) || (t.length >= 3 && [...known].some((v) => v.startsWith(t)))) return t;
+    if (known.has(t) || [...known].some((v) => v.startsWith(t))) return t;
     let best = "";
     let bestScore = 0;
     for (const v of vocab) {
@@ -188,7 +194,8 @@ export function searchCatalog(
     for (const t of fixed) {
       const isCategoryWord = (CATEGORY_HINTS[t] ?? t) === categoryWord;
       // "necklace" shouldn't pull in a ring whose description mentions necklaces.
-      const usable = isCategoryWord && p.category.slug !== category!.slug ? fields.slice(0, 3) : fields;
+      // 1–2 letters only match name / category / material, or "g" would hit every description.
+      const usable = (isCategoryWord && p.category.slug !== category!.slug) || t.length < 3 ? fields.slice(0, 3) : fields;
       let best = 0;
       for (const f of usable) for (const w of f.words) best = Math.max(best, similarity(t, w) * f.weight);
       if (isCategoryWord && p.category.slug === category!.slug) {
