@@ -7,6 +7,7 @@ import {
   saveContactSettings,
   saveSocialSettings,
   saveShippingSettings,
+  savePaymentSettings,
   saveAnnouncementSettings,
   saveAlertSettings,
   changePassword,
@@ -186,6 +187,53 @@ export function StoreSettingsForms({ settings, canEdit }: { settings: StoreSetti
               hint="Set 0 for free shipping on every order."
             />
             <Field name="deliveryTime" label="Delivery time" defaultValue={v(s, "deliveryTime", settings.shipping.deliveryTime)} required />
+          </div>
+        )}
+      </Card>
+
+      <Card
+        id="payments"
+        title="Easypaisa & JazzCash"
+        description="Shoppers send the order amount to this account and type the Transaction ID (TID) at checkout. Check the TID in your wallet app, then mark the order Paid. A method shows at checkout only when it is switched on."
+        action={savePaymentSettings}
+        success="Payment methods updated"
+        disabled={lock}
+      >
+        {(s) => (
+          <div className="grid gap-5 sm:grid-cols-2">
+            {(["easypaisa", "jazzcash"] as const).map((key) => {
+              const w = settings.payments[key];
+              const enabled = s.values ? s.values[`${key}Enabled`] === "on" : w.enabled;
+              return (
+                <div key={key} className="space-y-3 rounded-xl border border-[var(--line)] p-4">
+                  <label className="flex cursor-pointer items-center justify-between gap-3">
+                    <span className="font-medium text-ink">{key === "easypaisa" ? "Easypaisa" : "JazzCash"}</span>
+                    <span className="flex items-center gap-2 text-sm text-muted">
+                      Show at checkout
+                      <input
+                        type="checkbox"
+                        name={`${key}Enabled`}
+                        defaultChecked={enabled}
+                        className="h-4 w-4 accent-[var(--color-gold-deep)]"
+                      />
+                    </span>
+                  </label>
+                  <Field
+                    name={`${key}Title`}
+                    label="Account title"
+                    defaultValue={v(s, `${key}Title`, w.accountTitle)}
+                    placeholder="ZARIERA / owner's name"
+                  />
+                  <Field
+                    name={`${key}Number`}
+                    label="Mobile account number"
+                    defaultValue={v(s, `${key}Number`, w.number)}
+                    placeholder="03001234567"
+                    hint="11 digits, starting with 03."
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </Card>

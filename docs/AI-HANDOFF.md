@@ -181,7 +181,7 @@ Data layer: **`src/lib/admin-data.ts`** — all admin aggregations
 - **ContactMessage** (name, email, phone, subject, message, topic, handled) — contact form inbox *(new 2026-10-02)*
 - **Subscriber** (email unique, source) — newsletter + "notify me" sign-ups *(new 2026-10-02)*
 - **EmailVerification** (email+purpose unique, codeHash = HMAC, payload JSON, attempts, sendCount, lastSentAt, expiresAt) — sign-up / verify-email OTP codes *(new 2026-10-20)*; **Customer.emailVerifiedAt** (null = not verified)
-- Status rules live in `src/lib/order-status.ts` (`ORDER_TRANSITIONS`, `PAYMENT_TRANSITIONS`). DELIVERED/CANCELLED are final; cancelling restocks once (`cancelOrderAndRestock` in `lib/orders.ts`).
+- Status rules live in `src/lib/order-status.ts` (`ORDER_TRANSITIONS`, `PAYMENT_TRANSITIONS`). Orders move forward only (steps may be skipped); DELIVERED is final; CANCELLED can only go back to PENDING through **Reopen** (`reopenOrder` in `lib/orders.ts` re-takes stock or fails). Cancelling restocks once (`cancelOrderAndRestock`). Every change is logged in `OrderEvent` (see 2026-11-18).
 - Enums: `OrderStatus` (PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED), `PaymentMethod` (COD, PAYFAST, SAFEPAY), `PaymentStatus`, `Role`
 
 ---
@@ -1516,3 +1516,43 @@ Owner's test feedback on the Custom form:
     - The login bubble shows the server message; the tail is at x 233 and the icon at x 234; the bubble is inside 390px and hides on blur.
     - Register and reset: a mismatch shows "Passwords don't match", and a match turns green.
   - tsc and eslint are clean.
+
+### 2026-11-18 — Easypaisa / JazzCash (manual TID) + step-based admin order flow (Claude, on `dev`)
+- **Workflow (owner, 2026-11-17):** work on `dev` → Claude tests → owner tests → merge to `main` only when the owner says yes. This replaces the 2026-10-26 "work on main" rule.
+- **Easypaisa / JazzCash (owner chose manual transfer, no merchant account yet):**
+  - Admin → Settings → **Payments**: switch each wallet on, with account title and number (`03xxxxxxxxx`). A wallet shows at checkout only when it is on and filled in (`walletReady`).
+  - Checkout: the shopper sees the amount, the account and Copy, then must type the **TID** (8–20 letters/digits, spaces and dashes removed). The order is created as payment PENDING.
+  - Server (`api/orders`): rejects a wallet that is switched off, a missing or bad TID, and a TID already used on another non-cancelled order.
+  - New `Order.paymentTid`. Gateway callbacks and `/api/payments/cancel` now only touch PAYFAST/SAFEPAY orders (`isGateway`).
+  - Admin: the TID shows on the order, invoice and CSV. **"TID verified — mark as paid"** sets PAID and auto-confirms a pending order. Wallet orders can't ship until PAID.
+  - Emails: method labels, and the TID plus a "verifying" note (customer) / "check, then mark paid" note (admin).
+  - Card (PayFast/Safepay) code is unchanged and still hidden until merchant keys are set.
+- **Order flow (plan approved 2026-11-17):**
+  - Order progress panel: stepper Placed → Confirmed → Packed → Shipped → Delivered, one button for the next step, and "Skip ahead". Forward only.
+  - Cancel needs a reason and returns stock. **Reopen** puts the order back to Pending and takes the stock again. If any item is short, it fails with "Not enough stock for … (need N, have M)" and nothing changes. Reopen is blocked when an online payment is FAILED or REFUNDED.
+  - COD: marking Delivered sets payment PAID automatically. There is a "Mark as paid" fallback.
+  - A paid order that is cancelled shows **Refund due** with "Mark refunded".
+  - Shipped by hand runs the same "must be paid" check as courier booking and sets `shippedAt`. Delivered sets `deliveredAt`.
+  - **History** timeline (`OrderEvent`: who / what / when) on each order. PROCESSING is shown as "Packed" everywhere through `statusLabel`.
+- **Migrations (local only so far):** `20261117152703_wallet_payments`, `20261118105348_order_flow`. **Before merging to `main`, run `prisma migrate deploy` against Neon (owner OK needed).** Both are additive.
+- **Tested** (headless Chrome + curl on the owner's `next dev`, local DB):
+  - Settings: a bad number shows an error; `0300-1112223` saves as `03001112223`.
+  - API:
+    - no TID → 400; "AB12" → 400
+    - a good TID → 201, stored normalised
+    - the same TID on JazzCash → 400 "already been used"
+    - COD → 201; PayFast without keys → 400; no cookie → 401
+    - wallet switched off → 400, and it is hidden at checkout
+  - The cancel route left the wallet order untouched.
+  - 390px checkout: the panel shows the amount, number and Copy. An empty or bad TID shows the red message and blocks the order. A valid TID goes to the success page with "JazzCash · Verifying" and the TID. No horizontal scroll.
+    - Found and fixed: the long option description overlapped the panel.
+  - Admin flows:
+    - Easypaisa: mark paid → auto Confirmed → Packed → Shipped → Delivered, with History complete. Before payment, "Shipped" is disabled in Skip.
+    - COD: Skip → Shipped → Delivered, and payment PAID automatically.
+    - Cancel: stock 30→31. Reopen: back to 30.
+    - Reopen with stock 0: the error is shown, the order stays cancelled and stock stays 0.
+    - Paid then cancelled: Refund due → Mark refunded → reopen blocked.
+  - Dashboard, analytics, invoice, CSV export (TID column), account and FAQ all return 200.
+  - The test orders and customer were deleted, product stock was restored to 34, and wallet settings were set back to off/blank.
+  - tsc and eslint are clean. `next build` was not run (the owner's dev server was using `.next`).
+

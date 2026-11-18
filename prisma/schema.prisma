@@ -68,6 +68,8 @@ enum PaymentMethod {
   COD
   PAYFAST
   SAFEPAY
+  EASYPAISA // manual transfer — shopper enters the Transaction ID (TID)
+  JAZZCASH  // manual transfer — shopper enters the Transaction ID (TID)
 }
 
 enum PaymentStatus {
@@ -85,6 +87,8 @@ model Order {
   paymentStatus PaymentStatus @default(PENDING)
   // Gateway reference (e.g. Safepay tracker) used to match webhooks to orders
   paymentRef    String?
+  // Easypaisa / JazzCash Transaction ID typed by the shopper; admin verifies it
+  paymentTid    String?
 
   // Customer (guest checkout supported; linked to an account when signed in)
   customerName  String
@@ -108,8 +112,12 @@ model Order {
   courier         String?
   trackingNumber  String?
   shippedAt       DateTime?
+  deliveredAt     DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
 
   items         OrderItem[]
+  events        OrderEvent[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -117,6 +125,24 @@ model Order {
   @@index([email])
   @@index([customerId])
   @@index([paymentRef])
+  @@index([paymentTid])
+}
+
+// Timeline of everything that happened to an order (shown on the admin page).
+model OrderEvent {
+  id        String   @id @default(cuid())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  // PLACED | STATUS | PAYMENT | CANCELLED | REOPENED | SHIPMENT_BOOKED
+  type      String
+  from      String?
+  to        String?
+  note      String?
+  // admin email, "system" or "customer"
+  actor     String
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
 }
 
 model OrderItem {

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { requireCustomer } from "@/lib/customer-auth";
 import { prisma } from "@/lib/prisma";
-import { CheckoutForm, type CheckoutDefaults } from "@/components/checkout-form";
+import { CheckoutForm, type CheckoutDefaults, type CheckoutWallet } from "@/components/checkout-form";
+import { walletReady } from "@/lib/settings-shared";
 import { payfastConfigured, safepayConfigured } from "@/lib/payments";
 import { getProductBySlug } from "@/lib/catalog";
 import { getStoreSettings } from "@/lib/settings";
@@ -49,6 +50,15 @@ export default async function CheckoutPage({ searchParams }: PageProps<"/checkou
     };
   }
 
+  const wallets: CheckoutWallet[] = (
+    [
+      ["EASYPAISA", settings.payments.easypaisa],
+      ["JAZZCASH", settings.payments.jazzcash],
+    ] as const
+  )
+    .filter(([, w]) => walletReady(w))
+    .map(([method, w]) => ({ method, accountTitle: w.accountTitle, number: w.number }));
+
   const defaults: CheckoutDefaults = { name: session.name, email: session.email, phone };
 
   return (
@@ -58,6 +68,7 @@ export default async function CheckoutPage({ searchParams }: PageProps<"/checkou
       buyNow={buyNow}
       shippingRules={settings.shipping}
       gateways={{ PAYFAST: payfastConfigured(), SAFEPAY: safepayConfigured() }}
+      wallets={wallets}
     />
   );
 }

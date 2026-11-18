@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   }
 
   const header = [
-    "Order number", "Date", "Status", "Payment method", "Payment status",
+    "Order number", "Date", "Status", "Payment method", "Payment status", "Transaction ID",
     "Customer", "Phone", "Email", "City", "Address", "Postal code",
     "Items", "Item count", "Subtotal (Rs)", "Shipping (Rs)", "Total (Rs)",
     "Courier", "Tracking number", "Notes",
@@ -40,6 +40,7 @@ export async function GET(request: Request) {
     o.status,
     o.paymentMethod,
     o.paymentStatus,
+    o.paymentTid ?? "",
     o.customerName,
     o.phone,
     o.email,

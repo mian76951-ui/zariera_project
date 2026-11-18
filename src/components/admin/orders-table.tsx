@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { formatPrice, formatDate } from "@/lib/format";
 import { StatusBadge } from "@/components/status-badge";
 import type { AdminOrderRow } from "@/lib/admin-data";
+import { PAYMENT_METHOD_LABEL, statusLabel } from "@/lib/order-status";
 
 const TABS = ["ALL", "PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
 type Tab = (typeof TABS)[number];
@@ -62,7 +63,7 @@ export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
                 active ? "bg-maroon text-light" : "text-muted hover:bg-cream-soft hover:text-ink"
               }`}
             >
-              {t === "ALL" ? "All" : t.charAt(0) + t.slice(1).toLowerCase()}
+              {t === "ALL" ? "All" : statusLabel(t)}
               <span className={`rounded-full px-1.5 text-[0.62rem] ${active ? "bg-light/20 text-light" : "bg-cream-soft text-muted"}`}>
                 {n}
               </span>
@@ -104,7 +105,7 @@ export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
                     </td>
                     <td className="px-4 py-3 text-ink">{o.customerName}</td>
                     <td className="px-4 py-3">
-                      <span className="mr-2 text-xs font-medium text-ink">{o.paymentMethod}</span>
+                      <span className="mr-2 text-xs font-medium text-ink">{PAYMENT_METHOD_LABEL[o.paymentMethod] ?? o.paymentMethod}</span>
                       <StatusBadge status={o.paymentStatus} />
                     </td>
                     <td className="px-4 py-3"><StatusBadge status={o.status} /></td>
@@ -133,7 +134,7 @@ export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
                   <span className="font-semibold text-ink [font-variant-numeric:tabular-nums]">{formatPrice(o.total)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2 text-xs text-muted">
-                  <span>{o.itemCount} item{o.itemCount === 1 ? "" : "s"} · {o.paymentMethod}</span>
+                  <span>{o.itemCount} item{o.itemCount === 1 ? "" : "s"} · {PAYMENT_METHOD_LABEL[o.paymentMethod] ?? o.paymentMethod}</span>
                   <span>{formatDate(o.createdAt)}</span>
                 </div>
               </button>

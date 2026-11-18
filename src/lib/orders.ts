@@ -1,11 +1,13 @@
 import { randomInt } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "./prisma";
+import type { Prisma } from "@prisma/client";
 import { shippingFor } from "./settings-shared";
 import { getStoreSettings } from "./settings";
 import { after } from "next/server";
 import { sendOrderEmails } from "./email";
 import { refreshCatalog } from "./cache-tags";
+import { TID_RE, isWallet, normalizeTid } from "./order-status";
 
 
 export const checkoutSchema = z.object({
@@ -16,7 +18,9 @@ export const checkoutSchema = z.object({
   city: z.string().trim().min(2, "Enter your city").max(100),
   postalCode: z.string().max(20).nullish(),
   notes: z.string().max(1000).nullish(),
-  paymentMethod: z.enum(["COD", "PAYFAST", "SAFEPAY"]),
+  paymentMethod: z.enum(["COD", "PAYFAST", "SAFEPAY", "EASYPAISA", "JAZZCASH"]),
+  // Easypaisa / JazzCash Transaction ID (required for those methods only)
+  paymentTid: z.preprocess((v) => (v == null || v === "" ? undefined : normalizeTid(v)), z.string().optional()),
   items: z
     .array(
       z.object({
@@ -28,6 +32,13 @@ export const checkoutSchema = z.object({
     )
     .min(1, "Your cart is empty")
     .max(50),
+}).superRefine((d, ctx) => {
+  if (!isWallet(d.paymentMethod)) return;
+  if (!d.paymentTid) {
+    ctx.addIssue({ code: "custom", path: ["paymentTid"], message: "Enter the Transaction ID (TID) of your payment" });
+  } else if (!TID_RE.test(d.paymentTid)) {
+    ctx.addIssue({ code: "custom", path: ["paymentTid"], message: "A TID is 8–20 letters or digits" });
+  }
 });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
@@ -50,15 +61,42 @@ function generateOrderNumber(): string {
   return `ZR-${stamp}-${rand}`;
 }
 
+type Tx = Prisma.TransactionClient;
+
+export type OrderEventType = "PLACED" | "STATUS" | "PAYMENT" | "CANCELLED" | "REOPENED" | "SHIPMENT_BOOKED";
+
+/** Adds a line to an order's timeline (inside the caller's transaction). */
+export function logOrderEvent(
+  tx: Tx | typeof prisma,
+  orderId: string,
+  e: { type: OrderEventType; actor: string; from?: string | null; to?: string | null; note?: string | null }
+) {
+  return tx.orderEvent.create({
+    data: { orderId, type: e.type, actor: e.actor, from: e.from ?? null, to: e.to ?? null, note: e.note ?? null },
+  });
+}
+
 // Cancels an order exactly once and puts its items back into stock.
 // Safe to call repeatedly — only the call that flips the status restocks.
-export async function cancelOrderAndRestock(orderId: string): Promise<boolean> {
+// A delivered order can't be cancelled.
+export async function cancelOrderAndRestock(
+  orderId: string,
+  opts: { reason?: string; actor?: string } = {}
+): Promise<boolean> {
   const restocked = await prisma.$transaction(async (tx) => {
+    const before = await tx.order.findUnique({ where: { id: orderId }, select: { status: true } });
     const res = await tx.order.updateMany({
-      where: { id: orderId, status: { not: "CANCELLED" } },
-      data: { status: "CANCELLED" },
+      where: { id: orderId, status: { notIn: ["CANCELLED", "DELIVERED"] } },
+      data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: opts.reason ?? null },
     });
     if (res.count !== 1) return false;
+    await logOrderEvent(tx, orderId, {
+      type: "CANCELLED",
+      actor: opts.actor ?? "system",
+      from: before?.status,
+      to: "CANCELLED",
+      note: opts.reason,
+    });
     const items = await tx.orderItem.findMany({
       where: { orderId },
       select: { productId: true, quantity: true },
@@ -73,6 +111,47 @@ export async function cancelOrderAndRestock(orderId: string): Promise<boolean> {
   });
   if (restocked) refreshCatalog();
   return restocked;
+}
+
+export class ReopenError extends Error {}
+
+// Brings a cancelled order back to PENDING and takes its items out of stock
+// again — all or nothing: if any piece is short, nothing changes.
+export async function reopenOrder(orderId: string, actor: string): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      select: { status: true, paymentMethod: true, paymentStatus: true },
+    });
+    if (!order) throw new ReopenError("Order not found.");
+    if (order.status !== "CANCELLED") throw new ReopenError("Only a cancelled order can be reopened.");
+    if (order.paymentMethod !== "COD" && (order.paymentStatus === "FAILED" || order.paymentStatus === "REFUNDED")) {
+      throw new ReopenError(
+        `This order's payment is ${order.paymentStatus.toLowerCase()}, so it can't be reopened. The customer needs to place a new order.`
+      );
+    }
+    const res = await tx.order.updateMany({
+      where: { id: orderId, status: "CANCELLED" },
+      data: { status: "PENDING", cancelledAt: null, cancelReason: null },
+    });
+    if (res.count !== 1) throw new ReopenError("The order changed meanwhile. Reload and try again.");
+    const items = await tx.orderItem.findMany({
+      where: { orderId },
+      select: { productId: true, quantity: true, name: true },
+    });
+    for (const i of items) {
+      const took = await tx.product.updateMany({
+        where: { id: i.productId, stock: { gte: i.quantity } },
+        data: { stock: { decrement: i.quantity } },
+      });
+      if (took.count !== 1) {
+        const p = await tx.product.findUnique({ where: { id: i.productId }, select: { stock: true } });
+        throw new ReopenError(`Not enough stock for "${i.name}" (need ${i.quantity}, have ${p?.stock ?? 0}).`);
+      }
+    }
+    await logOrderEvent(tx, orderId, { type: "REOPENED", actor, from: "CANCELLED", to: "PENDING" });
+  });
+  refreshCatalog();
 }
 
 export async function createOrder(
@@ -151,7 +230,7 @@ export async function createOrder(
                 `"${i.name}" just sold out or has fewer pieces left. Please update your cart.`
               );
           }
-          return tx.order.create({
+          const created = await tx.order.create({
             data: {
               orderNumber,
               customerName: data.customerName.trim(),
@@ -162,6 +241,7 @@ export async function createOrder(
               postalCode: data.postalCode?.trim() || null,
               notes: data.notes?.trim() || null,
               paymentMethod: data.paymentMethod,
+              paymentTid: isWallet(data.paymentMethod) ? data.paymentTid : null,
               customerId: safeCustomerId,
               subtotal,
               shipping,
@@ -170,6 +250,8 @@ export async function createOrder(
             },
             select: { id: true, createdAt: true },
           });
+          await logOrderEvent(tx, created.id, { type: "PLACED", actor: "customer", to: "PENDING" });
+          return created;
         });
       } catch (err) {
         // Retry only on an (astronomically unlikely) order-number collision.
@@ -196,6 +278,7 @@ export async function createOrder(
           address: data.address,
           city: data.city,
           paymentMethod: data.paymentMethod,
+          paymentTid: isWallet(data.paymentMethod) ? data.paymentTid : undefined,
           items: lineItems.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price })),
           subtotal,
           shipping,

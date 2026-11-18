@@ -139,6 +139,40 @@ export async function saveAlertSettings(_p: SettingsState, fd: FormData): Promis
   return { ...(await save("notifications", { orderEmail: parsed.data.orderEmail })), values };
 }
 
+// ---------- Payments: Easypaisa / JazzCash (manual transfer + TID) ----------
+const WALLETS = [
+  { key: "easypaisa", label: "Easypaisa" },
+  { key: "jazzcash", label: "JazzCash" },
+] as const;
+
+export async function savePaymentSettings(_p: SettingsState, fd: FormData): Promise<SettingsState> {
+  try {
+    await requireOwner();
+  } catch (e) {
+    unstable_rethrow(e); // a signed-out redirect must reach the browser
+    return { error: (e as Error).message };
+  }
+  const values: Record<string, string> = {};
+  const payments = {} as StoreSettings["payments"];
+  for (const { key, label } of WALLETS) {
+    const enabled = fd.get(`${key}Enabled`) === "on";
+    const accountTitle = String(fd.get(`${key}Title`) ?? "").trim();
+    const number = String(fd.get(`${key}Number`) ?? "").replace(/[\s-]/g, "");
+    values[`${key}Enabled`] = enabled ? "on" : "";
+    values[`${key}Title`] = accountTitle;
+    values[`${key}Number`] = number;
+    if (number && !/^03\d{9}$/.test(number)) {
+      return { error: `${label}: enter the 11-digit mobile account number, e.g. 03001234567`, values };
+    }
+    if (accountTitle.length > 80) return { error: `${label}: account title is too long.`, values };
+    if (enabled && (!number || !accountTitle)) {
+      return { error: `${label}: add the account title and number before switching it on.`, values };
+    }
+    payments[key] = { enabled, accountTitle, number };
+  }
+  return { ...(await save("payments", payments)), values };
+}
+
 // ---------- My account: change password ----------
 export async function changePassword(_p: SettingsState, fd: FormData): Promise<SettingsState> {
   const session = await requireAdmin();

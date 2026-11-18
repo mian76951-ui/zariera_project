@@ -258,7 +258,7 @@ export async function getAdminOrder(id: string) {
   try {
     const o = await prisma.order.findUnique({
       where: { id },
-      include: { items: true },
+      include: { items: true, events: { orderBy: { createdAt: "desc" } } },
     });
     if (!o) return null;
     return {
@@ -267,6 +267,10 @@ export async function getAdminOrder(id: string) {
       shipping: Number(o.shipping),
       total: Number(o.total),
       createdAt: o.createdAt.toISOString(),
+      shippedAt: o.shippedAt?.toISOString() ?? null,
+      deliveredAt: o.deliveredAt?.toISOString() ?? null,
+      cancelledAt: o.cancelledAt?.toISOString() ?? null,
+      events: o.events.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() })),
       items: o.items.map((i) => ({ ...i, price: Number(i.price) })),
     };
   } catch {
@@ -634,6 +638,8 @@ export async function getPaymentBreakdown(): Promise<{
       COD: "Cash on Delivery",
       PAYFAST: "PayFast (Card)",
       SAFEPAY: "Safepay",
+      EASYPAISA: "Easypaisa",
+      JAZZCASH: "JazzCash",
     };
     const methods = grouped
       .map((g) => {

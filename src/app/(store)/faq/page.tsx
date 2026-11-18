@@ -13,11 +13,11 @@ export const metadata: Metadata = {
 const faqs = (DELIVERY_TIME: string) => [
   {
     q: "How do I place an order?",
-    a: "Browse the collection, add pieces to your bag, and check out. You can pay Cash on Delivery or securely online by card/wallet.",
+    a: "Browse the collection, add pieces to your bag, and check out. You can pay Cash on Delivery, or pay in advance with Easypaisa or JazzCash.",
   },
   {
     q: "What payment methods do you accept?",
-    a: "Cash on Delivery (COD) across Pakistan, and online payments via PayFast and Safepay (card and wallet).",
+    a: "Cash on Delivery (COD) across Pakistan, and Easypaisa or JazzCash: send the amount to our account at checkout and enter the Transaction ID (TID). We confirm your order once the payment is verified.",
   },
   {
     q: "How long does delivery take?",

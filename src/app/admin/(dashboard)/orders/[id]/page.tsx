@@ -4,9 +4,10 @@ import { getAdminOrder } from "@/lib/admin-data";
 import { formatPrice } from "@/lib/format";
 import { StatusBadge } from "@/components/status-badge";
 import { ShipmentPanel } from "@/components/admin/shipment-panel";
-import { StatusUpdateForm } from "@/components/admin/status-update-form";
-import { updateOrderStatus, updatePaymentStatus } from "../actions";
-import { ORDER_TRANSITIONS, PAYMENT_TRANSITIONS } from "@/lib/order-status";
+import { OrderFlowPanel } from "@/components/admin/order-flow-panel";
+import { PaymentPanel } from "@/components/admin/payment-panel";
+import { OrderTimeline } from "@/components/admin/order-timeline";
+import { needsPaymentBeforeShipping, type OrderStatus } from "@/lib/order-status";
 import { courierLabel, trackingUrl } from "@/lib/couriers";
 import { requireAdmin } from "@/lib/admin";
 
@@ -21,6 +22,21 @@ export default async function AdminOrderDetailPage({
   const { id } = await params;
   const order = await getAdminOrder(id);
   if (!order) notFound();
+
+  // When each step was first reached, from the timeline (oldest wins).
+  const stamps: Partial<Record<OrderStatus, string | null>> = { PENDING: order.createdAt };
+  for (const e of [...order.events].reverse()) {
+    if ((e.type === "STATUS" || e.type === "SHIPMENT_BOOKED") && e.to && !stamps[e.to as OrderStatus]) {
+      stamps[e.to as OrderStatus] = e.createdAt;
+    }
+  }
+  stamps.SHIPPED ??= order.shippedAt;
+  stamps.DELIVERED = order.deliveredAt ?? stamps.DELIVERED ?? null;
+  stamps.CANCELLED = order.cancelledAt;
+  const blockedReason =
+    needsPaymentBeforeShipping(order.paymentMethod) && order.paymentStatus !== "PAID"
+      ? "Can't ship yet — this order hasn't been paid. Mark the payment as paid first."
+      : null;
 
   return (
     <div>
@@ -89,40 +105,39 @@ export default async function AdminOrderDetailPage({
               {order.notes && <Info label="Notes" value={order.notes} />}
             </dl>
           </div>
+
+          <OrderTimeline events={order.events} placedAt={order.createdAt} />
         </div>
 
         {/* Status controls */}
         <aside className="space-y-5">
-          <ShipmentPanel
+
+          <OrderFlowPanel
+            key={order.status}
             id={order.id}
-            booked={!!order.trackingNumber}
-            courierName={order.courier ? courierLabel(order.courier) : undefined}
-            trackingNumber={order.trackingNumber}
-            trackUrl={order.courier && order.trackingNumber ? trackingUrl(order.courier, order.trackingNumber) : undefined}
+            status={order.status}
+            stamps={stamps}
+            cancelReason={order.cancelReason}
+            blockedReason={blockedReason}
           />
 
-          <div className="rounded-xl border border-[var(--line)] bg-surface p-5">
-            <h2 className="mb-3 font-serif text-lg font-semibold text-ink">Order status</h2>
-            <StatusUpdateForm
-              action={updateOrderStatus.bind(null, order.id)}
-              name="status"
-              defaultValue={order.status}
-              options={[order.status, ...ORDER_TRANSITIONS[order.status]]}
-              successMessage="Order status updated"
+          <PaymentPanel
+            id={order.id}
+            method={order.paymentMethod}
+            paymentStatus={order.paymentStatus}
+            status={order.status}
+            total={order.total}
+            tid={order.paymentTid}
+          />
+          {order.status !== "CANCELLED" && (order.trackingNumber || order.status !== "DELIVERED") && (
+            <ShipmentPanel
+              id={order.id}
+              booked={!!order.trackingNumber}
+              courierName={order.courier ? courierLabel(order.courier) : undefined}
+              trackingNumber={order.trackingNumber}
+              trackUrl={order.courier && order.trackingNumber ? trackingUrl(order.courier, order.trackingNumber) : undefined}
             />
-          </div>
-
-          <div className="rounded-xl border border-[var(--line)] bg-surface p-5">
-            <h2 className="mb-1 font-serif text-lg font-semibold text-ink">Payment</h2>
-            <p className="mb-3 text-sm text-muted">Method: {order.paymentMethod}</p>
-            <StatusUpdateForm
-              action={updatePaymentStatus.bind(null, order.id)}
-              name="paymentStatus"
-              defaultValue={order.paymentStatus}
-              options={[order.paymentStatus, ...PAYMENT_TRANSITIONS[order.paymentStatus]]}
-              successMessage="Payment status updated"
-            />
-          </div>
+          )}
         </aside>
       </div>
     </div>

@@ -1,6 +1,9 @@
 import nodemailer from "nodemailer";
 import { formatPrice } from "./format";
 import { getStoreSettings } from "./settings";
+import { PAYMENT_METHOD_LABEL, isWallet } from "./order-status";
+
+const methodLabel = (m: string) => PAYMENT_METHOD_LABEL[m] ?? m;
 
 // Where owner alerts go: Admin → Settings → Notifications, else env.
 async function alertAddress(): Promise<string> {
@@ -20,6 +23,8 @@ export type OrderEmailData = {
   address: string;
   city: string;
   paymentMethod: string;
+  /** Easypaisa / JazzCash Transaction ID the shopper entered */
+  paymentTid?: string;
   items: { name: string; quantity: number; price: number }[];
   subtotal: number;
   shipping: number;
@@ -93,17 +98,19 @@ function customerHtml(o: OrderEmailData): string {
     "Thank you for your order!",
     `<p style="color:#3a231e;font-size:14px">Hi ${escape(o.customerName)}, we&rsquo;ve received your order and our team will be in touch shortly.</p>
      <p style="color:#3a231e;font-size:14px">Order number: <strong>${escape(o.orderNumber)}</strong><br/>
-     Payment: <strong>${escape(o.paymentMethod)}</strong></p>
+     Payment: <strong>${escape(methodLabel(o.paymentMethod))}</strong>${o.paymentTid ? `<br/>Transaction ID: <strong>${escape(o.paymentTid)}</strong>` : ""}</p>
      <div style="margin:18px 0">${itemsTable(o)}</div>
      <p style="color:#8a6f63;font-size:13px">Delivery to: ${escape(o.address)}, ${escape(o.city)}<br/>Phone: ${escape(o.phone)}</p>
-     ${o.paymentMethod === "COD" ? `<p style="color:#8a6f63;font-size:13px">For Cash on Delivery, please keep the amount ready at delivery.</p>` : ""}`
+     ${o.paymentMethod === "COD" ? `<p style="color:#8a6f63;font-size:13px">For Cash on Delivery, please keep the amount ready at delivery.</p>` : ""}
+     ${isWallet(o.paymentMethod) ? `<p style="color:#8a6f63;font-size:13px">We&rsquo;re verifying your ${escape(methodLabel(o.paymentMethod))} payment. We&rsquo;ll confirm your order as soon as it&rsquo;s checked.</p>` : ""}`
   );
 }
 
 function adminHtml(o: OrderEmailData): string {
   return shell(
     "New order received",
-    `<p style="color:#3a231e;font-size:14px">Order <strong>${escape(o.orderNumber)}</strong> — ${formatPrice(o.total)} (${escape(o.paymentMethod)})</p>
+    `<p style="color:#3a231e;font-size:14px">Order <strong>${escape(o.orderNumber)}</strong> — ${formatPrice(o.total)} (${escape(methodLabel(o.paymentMethod))})</p>
+     ${o.paymentTid ? `<p style="color:#3a231e;font-size:14px;background:#fbf5ea;border:1px solid #e8d7b5;border-radius:8px;padding:10px 12px">${escape(methodLabel(o.paymentMethod))} TID: <strong>${escape(o.paymentTid)}</strong><br/><span style="color:#8a6f63;font-size:13px">Check this TID in the ${escape(methodLabel(o.paymentMethod))} account, then mark the order Paid in the dashboard.</span></p>` : ""}
      <p style="color:#3a231e;font-size:14px"><strong>${escape(o.customerName)}</strong><br/>
      ${escape(o.email)} · ${escape(o.phone)}<br/>
      ${escape(o.address)}, ${escape(o.city)}</p>

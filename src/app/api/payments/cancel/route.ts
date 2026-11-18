@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cancelOrderAndRestock } from "@/lib/orders";
 import { siteUrl } from "@/lib/site";
+import { isGateway } from "@/lib/order-status";
 
 // The gateway sends the shopper here when they abandon/cancel payment.
 // Releases the reserved stock of that still-unpaid online order so a retry
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
       });
       if (
         o &&
-        o.paymentMethod !== "COD" &&
+        isGateway(o.paymentMethod) && // never COD or a manual Easypaisa/JazzCash order
         o.paymentStatus === "PENDING" &&
         o.status === "PENDING" &&
         Date.now() - o.createdAt.getTime() < MAX_AGE_MS
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
           where: { id: o.id, paymentStatus: "PENDING" },
           data: { paymentStatus: "FAILED" },
         });
-        await cancelOrderAndRestock(o.id);
+        await cancelOrderAndRestock(o.id, { reason: "Payment cancelled by customer", actor: "customer" });
       }
     } catch (err) {
       console.error("[payment] cancel handling failed:", err);

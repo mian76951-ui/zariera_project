@@ -30,7 +30,27 @@ export type StoreSettings = {
     /** Where new-order / contact alerts go (falls back to ADMIN_NOTIFY_EMAIL / SMTP_USER) */
     orderEmail: string;
   };
+  /** Manual mobile-wallet transfers (shopper sends money, then types the TID) */
+  payments: {
+    easypaisa: WalletAccount;
+    jazzcash: WalletAccount;
+  };
 };
+
+export type WalletAccount = {
+  enabled: boolean;
+  /** Name on the account, shown so the shopper can check before sending */
+  accountTitle: string;
+  /** Mobile account number, e.g. "03001234567" */
+  number: string;
+};
+
+export type WalletKey = keyof StoreSettings["payments"];
+
+/** A wallet appears at checkout only when it is switched on and has a number. */
+export function walletReady(w: WalletAccount | undefined): boolean {
+  return Boolean(w?.enabled && w.number && w.accountTitle);
+}
 
 export function whatsappUrl(s: StoreSettings): string {
   return s.contact.whatsapp ? `https://wa.me/${s.contact.whatsapp}` : "";

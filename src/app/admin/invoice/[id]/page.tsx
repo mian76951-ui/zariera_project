@@ -69,6 +69,7 @@ export default async function InvoicePage({ params }: PageProps<"/admin/invoice/
             <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#8a6f63]">Payment</p>
             <p className="mt-1.5 font-medium">{PAYMENT_METHOD_LABEL[order.paymentMethod] ?? order.paymentMethod}</p>
             <p>Status: {order.paymentStatus.charAt(0) + order.paymentStatus.slice(1).toLowerCase()}</p>
+            {order.paymentTid && <p>TID: {order.paymentTid}</p>}
             {order.courier && order.trackingNumber && (
               <p className="mt-2">
                 {courierLabel(order.courier)} · <span className="font-medium">{order.trackingNumber}</span>

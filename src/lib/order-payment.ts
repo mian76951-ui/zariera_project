@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { cancelOrderAndRestock } from "./orders";
+import { isGateway } from "./order-status";
 
 // Applies a verified gateway result to an order (by order number).
 // Idempotent and state-guarded:
@@ -18,7 +19,9 @@ export async function markOrderPayment(
       where: { orderNumber },
       select: { id: true, total: true, status: true, paymentStatus: true, paymentMethod: true },
     });
-    if (!order || order.paymentMethod === "COD") return false;
+    // Only gateway orders are settled by callbacks. COD and Easypaisa/JazzCash
+    // (manual TID) orders are confirmed by an admin.
+    if (!order || !isGateway(order.paymentMethod)) return false;
 
     if (paid) {
       if (amount != null && Math.abs(Number(order.total) - amount) > 1) {
@@ -42,7 +45,7 @@ export async function markOrderPayment(
       where: { id: order.id, paymentStatus: "PENDING" },
       data: { paymentStatus: "FAILED" },
     });
-    if (res.count === 1) await cancelOrderAndRestock(order.id);
+    if (res.count === 1) await cancelOrderAndRestock(order.id, { reason: "Online payment failed", actor: "system" });
     return true;
   } catch (err) {
     console.error("[payment] could not update order:", err);

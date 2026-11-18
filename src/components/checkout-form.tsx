@@ -9,8 +9,21 @@ import { useToast } from "@/components/ui/toast";
 import { formatPrice, savingsOf } from "@/lib/format";
 import { SavingsStrip } from "@/components/ui/sale-badge";
 import { shippingFor } from "@/lib/settings-shared";
+import { FieldError, StatusIcon, statusRing, type FieldStatus } from "@/components/auth/auth-field";
+import { TID_RE, normalizeTid, isWallet, type WalletMethod } from "@/lib/order-status";
 
-type PaymentMethod = "COD" | "PAYFAST" | "SAFEPAY";
+type PaymentMethod = "COD" | "PAYFAST" | "SAFEPAY" | WalletMethod;
+
+/** An Easypaisa / JazzCash account the shopper can send money to. */
+export type CheckoutWallet = { method: WalletMethod; accountTitle: string; number: string };
+
+const WALLET_NAME: Record<WalletMethod, string> = { EASYPAISA: "Easypaisa", JAZZCASH: "JazzCash" };
+
+function tidError(v: string, method: WalletMethod): string | null {
+  if (!v) return `Enter the Transaction ID (TID) from your ${WALLET_NAME[method]} SMS`;
+  if (!TID_RE.test(v)) return "A TID is 8–20 letters or digits, e.g. 01234567890";
+  return null;
+}
 
 export type CheckoutDefaults = {
   name?: string;
@@ -31,6 +44,7 @@ export function CheckoutForm({
   defaults,
   paymentNotice = null,
   gateways = { PAYFAST: false, SAFEPAY: false },
+  wallets = [],
   buyNow = null,
   shippingRules = { flatFee: 500, freeThreshold: 50000, deliveryTime: "" },
 }: {
@@ -39,6 +53,7 @@ export function CheckoutForm({
   defaults?: CheckoutDefaults;
   paymentNotice?: keyof typeof NOTICES | null;
   gateways?: { PAYFAST: boolean; SAFEPAY: boolean };
+  wallets?: CheckoutWallet[];
 }) {
   const router = useRouter();
   const cart = useCart();
@@ -52,6 +67,11 @@ export function CheckoutForm({
   const toast = useToast();
   const [payment, setPayment] = useState<PaymentMethod>("COD");
   const [submitting, setSubmitting] = useState(false);
+  const [tid, setTid] = useState("");
+  const [tidTouched, setTidTouched] = useState(false);
+  const tidRef = useRef<HTMLInputElement>(null);
+  const wallet = isWallet(payment) ? wallets.find((w) => w.method === payment) ?? null : null;
+  const tidProblem = wallet ? tidError(tid, wallet.method) : null;
   const [error, setError] = useState<string | null>(paymentNotice ? NOTICES[paymentNotice] : null);
 
 
@@ -90,6 +110,12 @@ export function CheckoutForm({
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (wallet && tidProblem) {
+      setTidTouched(true);
+      tidRef.current?.focus();
+      toast.error(tidProblem, { title: "Transaction ID needed" });
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
@@ -103,6 +129,7 @@ export function CheckoutForm({
       postalCode: form.get("postalCode"),
       notes: form.get("notes"),
       paymentMethod: payment,
+      paymentTid: wallet ? tid : undefined,
       items: items.map((i) => ({
         productId: i.id,
         name: i.name,
@@ -193,8 +220,36 @@ export function CheckoutForm({
                 onSelect={setPayment}
                 title="Cash on Delivery (COD)"
                 desc="Shop now & pay in cash at your doorstep."
-                last={!gateways.PAYFAST && !gateways.SAFEPAY}
+                last={!gateways.PAYFAST && !gateways.SAFEPAY && wallets.length === 0}
               />
+              {wallets.map((w, i) => (
+                <PaymentOption
+                  key={w.method}
+                  value={w.method}
+                  current={payment}
+                  onSelect={(v) => {
+                    setPayment(v);
+                    setTidTouched(false);
+                  }}
+                  title={WALLET_NAME[w.method]}
+                  desc="Pay in advance by mobile wallet transfer."
+                  icons={<WalletChip method={w.method} />}
+                  last={i === wallets.length - 1 && !gateways.PAYFAST && !gateways.SAFEPAY}
+                >
+                  {payment === w.method && (
+                    <WalletPanel
+                      wallet={w}
+                      total={total}
+                      tid={tid}
+                      onTid={(v) => setTid(normalizeTid(v))}
+                      onBlur={() => setTidTouched(true)}
+                      status={tid || tidTouched ? (tidProblem ? "invalid" : "valid") : "idle"}
+                      problem={tidTouched || tid ? tidProblem : null}
+                      inputRef={tidRef}
+                    />
+                  )}
+                </PaymentOption>
+              ))}
               {gateways.PAYFAST && (
                 <PaymentOption
                   value="PAYFAST"
@@ -328,6 +383,7 @@ function PaymentOption({
   desc,
   icons,
   last = false,
+  children,
 }: {
   value: PaymentMethod;
   current: PaymentMethod;
@@ -336,13 +392,13 @@ function PaymentOption({
   desc: string;
   icons?: ReactNode;
   last?: boolean;
+  children?: ReactNode;
 }) {
   const active = current === value;
   return (
+    <div className={`${last ? "" : "border-b border-[var(--line)]"} ${active ? "bg-gold/8" : ""}`}>
     <label
-      className={`flex cursor-pointer items-center gap-3 p-4 transition ${
-        last ? "" : "border-b border-[var(--line)]"
-      } ${active ? "bg-gold/8" : "hover:bg-black/[0.02]"}`}
+      className={`flex cursor-pointer items-center gap-3 p-4 transition ${active ? "" : "hover:bg-black/[0.02]"}`}
     >
       <input
         type="radio"
@@ -354,12 +410,120 @@ function PaymentOption({
       />
       <span className="min-w-0 flex-1">
         <span className="block font-medium text-ink">{title}</span>
-        <span className={`block text-sm text-muted transition-all ${active ? "max-h-10 opacity-100" : "max-h-0 overflow-hidden opacity-0"}`}>
+        <span className={`block text-sm text-muted transition-all overflow-hidden ${active ? "max-h-16 opacity-100" : "max-h-0 opacity-0"}`}>
           {desc}
         </span>
       </span>
       {icons}
     </label>
+    {children}
+    </div>
+  );
+}
+
+function WalletChip({ method }: { method: WalletMethod }) {
+  return method === "EASYPAISA" ? (
+    <span className="shrink-0 rounded bg-[#1fb25a] px-1.5 py-0.5 text-[0.6rem] font-bold leading-none text-white">easypaisa</span>
+  ) : (
+    <span className="shrink-0 rounded bg-[#c8102e] px-1.5 py-0.5 text-[0.6rem] font-bold leading-none text-[#ffd200]">JazzCash</span>
+  );
+}
+
+/** Account details + steps + the TID box for a selected Easypaisa / JazzCash option. */
+function WalletPanel({
+  wallet,
+  total,
+  tid,
+  onTid,
+  onBlur,
+  status,
+  problem,
+  inputRef,
+}: {
+  wallet: CheckoutWallet;
+  total: number;
+  tid: string;
+  onTid: (v: string) => void;
+  onBlur: () => void;
+  status: FieldStatus;
+  problem: string | null;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  const [copied, setCopied] = useState(false);
+  const name = WALLET_NAME[wallet.method];
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(wallet.number);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* clipboard blocked — the number is still on screen */
+    }
+  }
+  return (
+    <div className="space-y-4 px-4 pb-5 sm:pl-11">
+      <div className="rounded-xl border border-[var(--line-strong)] bg-surface p-4 text-sm">
+        <div className="flex items-baseline justify-between gap-3 border-b border-[var(--line)] pb-3">
+          <span className="text-muted">Amount to send</span>
+          <span className="font-serif text-xl font-semibold text-ink">{formatPrice(total)}</span>
+        </div>
+        <dl className="mt-3 space-y-1.5">
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted">Account title</dt>
+            <dd className="text-right font-medium text-ink">{wallet.accountTitle}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <dt className="text-muted">{name} number</dt>
+            <dd className="flex items-center gap-2">
+              <span className="font-mono font-semibold tracking-wider text-ink">{wallet.number}</span>
+              <button
+                type="button"
+                onClick={copy}
+                className="rounded-full border border-[var(--line-strong)] px-2.5 py-0.5 text-xs font-medium text-gold-deep transition hover:border-gold"
+                aria-live="polite"
+              >
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </dd>
+          </div>
+        </dl>
+      </div>
+      <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
+        <li>
+          Open your {name} app and send <strong className="text-ink">{formatPrice(total)}</strong> to the number above.
+        </li>
+        <li>Copy the Transaction ID (TID) from the confirmation SMS.</li>
+        <li>Enter it below and complete your order. We&apos;ll confirm once we verify it.</li>
+      </ol>
+      <div>
+        <label htmlFor="co-tid" className={labelCls}>
+          Transaction ID (TID)
+        </label>
+        <div className={`relative flex items-center rounded-lg border bg-surface transition ${statusRing(status)}`}>
+          <input
+            ref={inputRef}
+            id="co-tid"
+            name="paymentTid"
+            inputMode="text"
+            autoComplete="off"
+            maxLength={24}
+            value={tid}
+            onChange={(e) => onTid(e.target.value)}
+            onBlur={onBlur}
+            placeholder="e.g. 01234567890"
+            aria-invalid={status === "invalid"}
+            aria-describedby={problem ? "co-tid-err" : undefined}
+            className="w-full min-w-0 bg-transparent px-4 py-3 font-mono text-sm tracking-wider text-ink outline-none placeholder:font-sans placeholder:tracking-normal placeholder:text-muted/60"
+          />
+          <StatusIcon status={status} message={problem} className="mr-3" />
+        </div>
+        {problem ? (
+          <FieldError id="co-tid-err">{problem}</FieldError>
+        ) : (
+          <p className="mt-1.5 text-xs text-muted">Your order is confirmed once we verify this payment.</p>
+        )}
+      </div>
+    </div>
   );
 }
 

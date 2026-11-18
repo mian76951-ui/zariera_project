@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { formatPrice } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { ClearCart } from "@/components/cart/clear-cart";
+import { PAYMENT_METHOD_LABEL, isGateway, isWallet } from "@/lib/order-status";
 
 export const metadata: Metadata = {
   title: "Order Confirmed",
@@ -17,6 +18,7 @@ type OrderSummary = {
   total: number;
   paymentMethod: string;
   paymentStatus: string;
+  paymentTid: string | null;
   status: string;
   productIds: string[];
 };
@@ -30,6 +32,7 @@ async function findOrder(orderNumber: string): Promise<OrderSummary | null> {
         total: true,
         paymentMethod: true,
         paymentStatus: true,
+        paymentTid: true,
         status: true,
         items: { select: { productId: true } },
       },
@@ -52,11 +55,14 @@ export default async function SuccessPage({
   const order = orderNumber ? await findOrder(orderNumber) : null;
   if (!order) redirect("/cart");
 
-  const online = order.paymentMethod !== "COD";
+  const online = isGateway(order.paymentMethod);
+  const wallet = isWallet(order.paymentMethod);
+  const walletName = PAYMENT_METHOD_LABEL[order.paymentMethod] ?? order.paymentMethod;
   if (online && (order.paymentStatus === "FAILED" || order.status === "CANCELLED")) {
     redirect("/checkout?payment=failed");
   }
   const awaitingPayment = online && order.paymentStatus !== "PAID";
+  const walletPending = wallet && order.paymentStatus !== "PAID";
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-24 text-center">
@@ -69,7 +75,9 @@ export default async function SuccessPage({
 
       <h1 className="mt-8 font-serif text-4xl font-semibold text-ink">Thank you!</h1>
       <p className="mt-3 text-muted">
-        {awaitingPayment
+        {walletPending
+          ? `Your order has been received. We're verifying your ${walletName} payment and will email you as soon as it's confirmed.`
+          : awaitingPayment
           ? "Your order has been received. We're confirming your payment with the provider — you'll get an email as soon as it's confirmed."
           : "Your order has been placed. A confirmation will be sent to your email."}
       </p>
@@ -90,9 +98,19 @@ export default async function SuccessPage({
               ? order.paymentStatus === "PAID"
                 ? "Paid online"
                 : "Confirming…"
-              : "Cash on Delivery"}
+              : wallet
+                ? order.paymentStatus === "PAID"
+                  ? `Paid · ${walletName}`
+                  : `${walletName} · Verifying`
+                : "Cash on Delivery"}
           </span>
         </div>
+        {wallet && order.paymentTid && (
+          <div className="mt-3 flex justify-between">
+            <span className="text-muted">Transaction ID</span>
+            <span className="font-mono font-medium tracking-wider text-ink">{order.paymentTid}</span>
+          </div>
+        )}
       </div>
 
       <div className="mx-auto mt-6 max-w-sm rounded-xl border border-gold/40 bg-gold/5 p-5 text-sm">
@@ -107,7 +125,7 @@ export default async function SuccessPage({
       </div>
 
       <p className="mx-auto mt-6 max-w-md text-sm text-muted">
-        {online
+        {online || wallet
           ? "Keep your order number handy — you can track it anytime from the Order Status page."
           : "For Cash on Delivery, please keep the amount ready at delivery. Our team will call to confirm your order."}
       </p>

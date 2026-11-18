@@ -13,6 +13,7 @@ const SECTIONS = [
   { id: "contact", label: "Contact" },
   { id: "social", label: "Social" },
   { id: "shipping", label: "Shipping" },
+  { id: "payments", label: "Payments" },
   { id: "announcements", label: "Announcement bar" },
   { id: "alerts", label: "Alerts" },
   { id: "account", label: "My account" },
@@ -41,7 +42,7 @@ export default async function AdminSettingsPage() {
     <div>
       <h1 className="font-serif text-3xl font-bold text-ink">Settings</h1>
       <p className="mt-1 text-sm text-muted">
-        Store details, shipping, the announcement bar, your password and your team. Changes go live on
+        Store details, shipping, payments, the announcement bar, your password and your team. Changes go live on
         the store immediately.
       </p>
 

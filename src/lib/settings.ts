@@ -41,6 +41,10 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   ],
   inventory: { lowStockThreshold: 5 },
   notifications: { orderEmail: process.env.ADMIN_NOTIFY_EMAIL || "" },
+  payments: {
+    easypaisa: { enabled: false, accountTitle: "", number: "" },
+    jazzcash: { enabled: false, accountTitle: "", number: "" },
+  },
 };
 
 type Partialish = { [K in keyof StoreSettings]?: Partial<StoreSettings[K]> | StoreSettings[K] };
@@ -54,6 +58,10 @@ function merge(saved: Partialish | null | undefined): StoreSettings {
     announcements: Array.isArray(s.announcements) ? (s.announcements as string[]) : DEFAULT_SETTINGS.announcements,
     inventory: { ...DEFAULT_SETTINGS.inventory, ...(s.inventory as object) },
     notifications: { ...DEFAULT_SETTINGS.notifications, ...(s.notifications as object) },
+    payments: {
+      easypaisa: { ...DEFAULT_SETTINGS.payments.easypaisa, ...((s.payments as Partial<StoreSettings["payments"]>)?.easypaisa ?? {}) },
+      jazzcash: { ...DEFAULT_SETTINGS.payments.jazzcash, ...((s.payments as Partial<StoreSettings["payments"]>)?.jazzcash ?? {}) },
+    },
   };
 }
 
