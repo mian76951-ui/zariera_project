@@ -1578,3 +1578,12 @@ Owner's test feedback on the Custom form:
   3. Run one sandbox payment end to end: redirect → callback marks PAID and Confirmed; cancel restocks.
   4. Then leave the manual wallets off.
 - **Tested:** `/faq` with the wallets off shows the COD-only text (no "Easypaisa"). tsc and eslint are clean.
+
+### 2026-11-19 — Pushed live: order flow + COD-only payment text (Claude)
+- Owner approved. **Neon migrated first:** `20261117152703_wallet_payments` and `20261118105348_order_flow`; `migrate status` → "up to date".
+  - Note: this machine's sandbox blocks outbound port 5432. It ran outside the sandbox with the owner's OK.
+  - Use a wrapper that sets **both** `DATABASE_URL` and `DIRECT_URL` to `NEON_DIRECT_URL`. The schema's `directUrl` otherwise points at the local DB.
+- `main` fast-forwarded to `8402dba` and pushed, and Vercel deployed.
+- **Live checks:** `/faq` shows the COD-only payment text; `/api/health` → database ok, `tables.missing: []`; home returns 200.
+- **Owner to check live:** one admin order page (Order progress + History panels) and `/checkout` (COD only).
+- Easypaisa/JazzCash stay off. Next payment step: the client gets PayFast or Safepay merchant keys → sandbox test (see the 2026-11-19 COD-only entry).
