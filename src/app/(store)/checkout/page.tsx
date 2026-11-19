@@ -3,6 +3,7 @@ import { requireCustomer } from "@/lib/customer-auth";
 import { prisma } from "@/lib/prisma";
 import { CheckoutForm, type CheckoutDefaults, type CheckoutWallet } from "@/components/checkout-form";
 import { walletReady } from "@/lib/settings-shared";
+import { WALLET_METHODS, WALLET_SETTING_KEY } from "@/lib/order-status";
 import { payfastConfigured, safepayConfigured } from "@/lib/payments";
 import { getProductBySlug } from "@/lib/catalog";
 import { getStoreSettings } from "@/lib/settings";
@@ -50,14 +51,10 @@ export default async function CheckoutPage({ searchParams }: PageProps<"/checkou
     };
   }
 
-  const wallets: CheckoutWallet[] = (
-    [
-      ["EASYPAISA", settings.payments.easypaisa],
-      ["JAZZCASH", settings.payments.jazzcash],
-    ] as const
-  )
-    .filter(([, w]) => walletReady(w))
-    .map(([method, w]) => ({ method, accountTitle: w.accountTitle, number: w.number }));
+  const wallets: CheckoutWallet[] = WALLET_METHODS.map((method) => ({
+    method,
+    ...settings.payments[WALLET_SETTING_KEY[method]],
+  })).filter(walletReady);
 
   const defaults: CheckoutDefaults = { name: session.name, email: session.email, phone };
 

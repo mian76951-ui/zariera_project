@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { getStoreSettings } from "@/lib/settings";
-import { getAdminStats, getAdminOrders, getAdminProducts } from "@/lib/admin-data";
+import { getAdminStats, getAdminOrders, countOrdersToVerify, getAdminProducts } from "@/lib/admin-data";
 import { formatPrice, formatDate } from "@/lib/format";
 import { DbBanner } from "@/components/admin/db-banner";
 import { StatusBadge } from "@/components/status-badge";
 import { requireAdmin } from "@/lib/admin";
 import { TagIcon } from "@/components/icons";
-import { needsPaymentCheck } from "@/lib/order-status";
 
 export const metadata = { title: { absolute: "Dashboard · ZARIERA Admin" } };
 
@@ -14,15 +13,15 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
   await requireAdmin(); // layouts don't re-run on client navigation
-  const [stats, ordersData, productsData, settings] = await Promise.all([
+  const [stats, ordersData, productsData, settings, toVerify] = await Promise.all([
     getAdminStats(),
-    getAdminOrders(),
+    getAdminOrders(5),
     getAdminProducts(),
     getStoreSettings(),
+    countOrdersToVerify(),
   ]);
   const LOW = settings.inventory.lowStockThreshold;
-  const recentOrders = ordersData.orders.slice(0, 5);
-  const toVerify = ordersData.orders.filter(needsPaymentCheck).length;
+  const recentOrders = ordersData.orders;
   const lowStockProducts = productsData.products
     .filter((p) => p.stock <= LOW)
     .sort((a, b) => a.stock - b.stock)

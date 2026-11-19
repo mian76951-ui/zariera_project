@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { lookupOrderAction, type LookupState } from "@/app/(store)/account/orders/actions";
 import { StatusBadge } from "@/components/status-badge";
 import { formatPrice } from "@/lib/format";
-import { PAYMENT_METHOD_LABEL } from "@/lib/order-status";
+import { PAYMENT_METHOD_LABEL, statusLabel } from "@/lib/order-status";
 
 const initial: LookupState = { status: "idle" };
 
@@ -66,7 +66,7 @@ export function OrderLookup({ defaultOrder = "" }: { defaultOrder?: string }) {
           <div className="mt-4 flex justify-between text-sm">
             <span className="text-muted">
               Payment: {PAYMENT_METHOD_LABEL[state.order.paymentMethod] ?? state.order.paymentMethod} ·{" "}
-              {state.order.paymentStatus.charAt(0) + state.order.paymentStatus.slice(1).toLowerCase()}
+              {statusLabel(state.order.paymentStatus)}
             </span>
             <span className="font-medium text-ink">{formatPrice(state.order.total)}</span>
           </div>

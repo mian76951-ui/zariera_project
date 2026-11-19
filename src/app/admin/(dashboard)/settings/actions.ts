@@ -8,6 +8,7 @@ import { requireAdmin, refreshAdminSession } from "@/lib/admin";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { saveStoreSettings, type StoreSettings } from "@/lib/settings";
 import { dbErrorKind } from "@/lib/db-errors";
+import { PAYMENT_METHOD_LABEL, WALLET_METHODS, WALLET_SETTING_KEY } from "@/lib/order-status";
 
 export type SettingsState = { ok?: boolean; error?: string; values?: Record<string, string> };
 
@@ -140,10 +141,7 @@ export async function saveAlertSettings(_p: SettingsState, fd: FormData): Promis
 }
 
 // ---------- Payments: Easypaisa / JazzCash (manual transfer + TID) ----------
-const WALLETS = [
-  { key: "easypaisa", label: "Easypaisa" },
-  { key: "jazzcash", label: "JazzCash" },
-] as const;
+const WALLETS = WALLET_METHODS.map((m) => ({ key: WALLET_SETTING_KEY[m], label: PAYMENT_METHOD_LABEL[m] }));
 
 export async function savePaymentSettings(_p: SettingsState, fd: FormData): Promise<SettingsState> {
   try {

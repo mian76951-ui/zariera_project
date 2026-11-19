@@ -1,10 +1,9 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState } from "react";
 import { updatePaymentStatus } from "@/app/admin/(dashboard)/orders/actions";
-import { StatusUpdateForm } from "@/components/admin/status-update-form";
+import { StatusUpdateForm, primaryBtn, useToastOn } from "@/components/admin/status-update-form";
 import { StatusBadge } from "@/components/status-badge";
-import { useToast } from "@/components/ui/toast";
 import { formatPrice } from "@/lib/format";
 import {
   PAYMENT_METHOD_LABEL,
@@ -17,11 +16,7 @@ import {
 /** One-click payment change (e.g. "Mark as paid") with a toast. */
 function QuickPayment({ id, to, label, tone = "ghost" }: { id: string; to: PaymentStatus; label: string; tone?: "ghost" | "primary" }) {
   const [state, action, pending] = useActionState(updatePaymentStatus.bind(null, id), {});
-  const toast = useToast();
-  useEffect(() => {
-    if (state.ok) toast.success("Payment updated", { title: "Saved" });
-    else if (state.error) toast.error(state.error);
-  }, [state, toast]);
+  useToastOn(state, "Payment updated");
   return (
     <form action={action}>
       <input type="hidden" name="paymentStatus" value={to} />
@@ -29,7 +24,7 @@ function QuickPayment({ id, to, label, tone = "ghost" }: { id: string; to: Payme
         disabled={pending}
         className={
           tone === "primary"
-            ? "w-full rounded-lg bg-maroon px-4 py-2.5 text-sm font-medium text-light transition hover:bg-maroon-2 disabled:opacity-60"
+            ? primaryBtn
             : "text-xs font-medium text-gold-deep underline-offset-2 hover:underline disabled:opacity-60"
         }
       >

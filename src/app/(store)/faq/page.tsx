@@ -4,6 +4,7 @@ import { Emblem } from "@/components/brand/emblem";
 import { getStoreSettings } from "@/lib/settings";
 import { walletReady, type StoreSettings } from "@/lib/settings-shared";
 import { payfastConfigured, safepayConfigured } from "@/lib/payments";
+import { PAYMENT_METHOD_LABEL, WALLET_METHODS, WALLET_SETTING_KEY } from "@/lib/order-status";
 import { AccordionItem } from "@/components/ui/accordion-item";
 
 export const metadata: Metadata = {
@@ -14,26 +15,26 @@ export const metadata: Metadata = {
 
 // Only mention payment options that are actually switched on right now.
 function paymentAnswers(s: StoreSettings): { order: string; methods: string } {
+  const browse = "Browse the collection, add pieces to your bag, and check out.";
+  const cod = "Cash on Delivery (COD) across Pakistan";
   if (payfastConfigured() || safepayConfigured()) {
     return {
-      order: "Browse the collection, add pieces to your bag, and check out. You can pay Cash on Delivery, or pay securely online by card, Easypaisa or JazzCash.",
-      methods: "Cash on Delivery (COD) across Pakistan, and secure online payment by card, Easypaisa or JazzCash at checkout.",
+      order: `${browse} You can pay Cash on Delivery, or pay securely online by card, Easypaisa or JazzCash.`,
+      methods: `${cod}, and secure online payment by card, Easypaisa or JazzCash at checkout.`,
     };
   }
-  const wallets = [
-    walletReady(s.payments.easypaisa) && "Easypaisa",
-    walletReady(s.payments.jazzcash) && "JazzCash",
-  ].filter(Boolean) as string[];
-  if (wallets.length) {
-    const w = wallets.join(" or ");
+  const wallets = WALLET_METHODS.filter((m) => walletReady(s.payments[WALLET_SETTING_KEY[m]]))
+    .map((m) => PAYMENT_METHOD_LABEL[m])
+    .join(" or ");
+  if (wallets) {
     return {
-      order: `Browse the collection, add pieces to your bag, and check out. You can pay Cash on Delivery, or pay in advance with ${w}.`,
-      methods: `Cash on Delivery (COD) across Pakistan, and ${w}: send the amount to our account at checkout and enter the Transaction ID (TID). We confirm your order once the payment is verified.`,
+      order: `${browse} You can pay Cash on Delivery, or pay in advance with ${wallets}.`,
+      methods: `${cod}, and ${wallets}: send the amount to our account at checkout and enter the Transaction ID (TID). We confirm your order once the payment is verified.`,
     };
   }
   return {
-    order: "Browse the collection, add pieces to your bag, and check out. You pay Cash on Delivery — no advance needed.",
-    methods: "Cash on Delivery (COD) across Pakistan. Online payment options will appear at checkout when available.",
+    order: `${browse} You pay Cash on Delivery — no advance needed.`,
+    methods: `${cod}. Online payment options will appear at checkout when available.`,
   };
 }
 

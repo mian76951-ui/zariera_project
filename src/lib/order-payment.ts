@@ -45,7 +45,7 @@ export async function markOrderPayment(
       where: { id: order.id, paymentStatus: "PENDING" },
       data: { paymentStatus: "FAILED" },
     });
-    if (res.count === 1) await cancelOrderAndRestock(order.id, { reason: "Online payment failed", actor: "system" });
+    if (res.count === 1) await cancelOrderAndRestock(order.id, { from: order.status, reason: "Online payment failed", actor: "system" });
     return true;
   } catch (err) {
     console.error("[payment] could not update order:", err);

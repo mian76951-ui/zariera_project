@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { getStoreSettings } from "./settings";
 import { ORDER_STATUSES } from "./order-status";
+import { PAYMENT_METHOD_LABEL, WALLET_METHODS } from "./order-status";
 
 export type AdminStats = {
   dbConnected: boolean;
@@ -226,7 +227,19 @@ export type AdminOrderRow = {
   itemCount: number;
 };
 
-export async function getAdminOrders(): Promise<{
+/** Easypaisa / JazzCash orders whose TID still has to be checked (same rule as `needsPaymentCheck`). */
+export async function countOrdersToVerify(): Promise<number> {
+  try {
+    return await prisma.order.count({
+      where: { paymentMethod: { in: [...WALLET_METHODS] }, paymentStatus: "PENDING", status: { not: "CANCELLED" } },
+    });
+  } catch {
+    return 0;
+  }
+}
+
+/** Newest orders first. Pass `take` when only the latest few are needed (dashboard). */
+export async function getAdminOrders(take?: number): Promise<{
   dbConnected: boolean;
   orders: AdminOrderRow[];
 }> {
@@ -234,6 +247,7 @@ export async function getAdminOrders(): Promise<{
     const rows = await prisma.order.findMany({
       include: { items: { select: { quantity: true } } },
       orderBy: { createdAt: "desc" },
+      take,
     });
     return {
       dbConnected: true,
@@ -634,19 +648,12 @@ export async function getPaymentBreakdown(): Promise<{
       _count: true,
     });
     const totalRev = grouped.reduce((s, g) => s + Number(g._sum.total ?? 0), 0);
-    const LABELS: Record<string, string> = {
-      COD: "Cash on Delivery",
-      PAYFAST: "PayFast (Card)",
-      SAFEPAY: "Safepay",
-      EASYPAISA: "Easypaisa",
-      JAZZCASH: "JazzCash",
-    };
     const methods = grouped
       .map((g) => {
         const revenue = Number(g._sum.total ?? 0);
         return {
           method: g.paymentMethod as string,
-          label: LABELS[g.paymentMethod as string] ?? (g.paymentMethod as string),
+          label: PAYMENT_METHOD_LABEL[g.paymentMethod] ?? g.paymentMethod,
           orders: g._count,
           revenue,
           share: totalRev > 0 ? Math.round((revenue / totalRev) * 100) : 0,

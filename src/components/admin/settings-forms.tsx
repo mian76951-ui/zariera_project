@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, type ReactNode } from "react";
 import { useToast } from "@/components/ui/toast";
 import type { StoreSettings } from "@/lib/settings-shared";
+import { PAYMENT_METHOD_LABEL, WALLET_METHODS, WALLET_SETTING_KEY } from "@/lib/order-status";
 import {
   saveContactSettings,
   saveSocialSettings,
@@ -201,13 +202,14 @@ export function StoreSettingsForms({ settings, canEdit }: { settings: StoreSetti
       >
         {(s) => (
           <div className="grid gap-5 sm:grid-cols-2">
-            {(["easypaisa", "jazzcash"] as const).map((key) => {
+            {WALLET_METHODS.map((method) => {
+              const key = WALLET_SETTING_KEY[method];
               const w = settings.payments[key];
               const enabled = s.values ? s.values[`${key}Enabled`] === "on" : w.enabled;
               return (
                 <div key={key} className="space-y-3 rounded-xl border border-[var(--line)] p-4">
                   <label className="flex cursor-pointer items-center justify-between gap-3">
-                    <span className="font-medium text-ink">{key === "easypaisa" ? "Easypaisa" : "JazzCash"}</span>
+                    <span className="font-medium text-ink">{PAYMENT_METHOD_LABEL[method]}</span>
                     <span className="flex items-center gap-2 text-sm text-muted">
                       Show at checkout
                       <input

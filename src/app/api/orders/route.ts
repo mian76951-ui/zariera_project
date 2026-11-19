@@ -34,8 +34,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // Easypaisa / JazzCash: only while the store has that account switched on,
-  // and one transfer (TID) can only pay for one order.
+  // Easypaisa / JazzCash: only while the store has that account switched on.
   if (isWallet(method)) {
     const settings = await getStoreSettings();
     if (!walletReady(settings.payments[WALLET_SETTING_KEY[method]])) {
@@ -43,18 +42,6 @@ export async function POST(request: Request) {
         { ok: false, error: `${PAYMENT_METHOD_LABEL[method]} isn't available right now. Please choose another payment method.` },
         { status: 400 }
       );
-    }
-    const tid = normalizeTid(input?.paymentTid);
-    if (tid) {
-      const used = await prisma.order
-        .findFirst({ where: { paymentTid: tid, status: { not: "CANCELLED" } }, select: { id: true } })
-        .catch(() => null);
-      if (used) {
-        return NextResponse.json(
-          { ok: false, error: "This Transaction ID has already been used for another order. Please check the TID in your SMS." },
-          { status: 400 }
-        );
-      }
     }
   }
 
@@ -71,6 +58,20 @@ export async function POST(request: Request) {
       { ok: false, error: "Please sign in to place your order.", signIn: true },
       { status: 401 }
     );
+  }
+
+  // One wallet transfer (TID) can only pay for one order.
+  const tid = isWallet(method) ? normalizeTid(input?.paymentTid) : "";
+  if (tid) {
+    const used = await prisma.order
+      .findFirst({ where: { paymentTid: tid, status: { not: "CANCELLED" } }, select: { id: true } })
+      .catch(() => null);
+    if (used) {
+      return NextResponse.json(
+        { ok: false, error: "This Transaction ID has already been used for another order. Please check the TID in your SMS." },
+        { status: 400 }
+      );
+    }
   }
 
   // The order belongs to the account, so its emails go to the account's address.
@@ -119,7 +120,7 @@ export async function POST(request: Request) {
     });
     if (placed) {
       await prisma.order.update({ where: { id: placed.id }, data: { paymentStatus: "FAILED" } });
-      await cancelOrderAndRestock(placed.id, { reason: "Payment provider unreachable", actor: "system" });
+      await cancelOrderAndRestock(placed.id, { from: "PENDING", reason: "Payment provider unreachable", actor: "system" });
     }
     return NextResponse.json(
       {

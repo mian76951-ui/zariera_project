@@ -29,7 +29,7 @@ export const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
 export const ORDER_STEPS = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED"] as const;
 
 /** Display names. PROCESSING is stored as-is but shown as "Packed". */
-export const STATUS_LABEL: Record<string, string> = {
+const STATUS_LABEL: Record<string, string> = {
   PENDING: "Pending",
   CONFIRMED: "Confirmed",
   PROCESSING: "Packed",
@@ -52,6 +52,13 @@ export const ACTION_LABEL: Partial<Record<OrderStatus, string>> = {
 
 /** Online (paid in advance) methods must be PAID before an order ships. */
 export const needsPaymentBeforeShipping = (method: string) => method !== "COD";
+
+/** Why an order can't be marked shipped yet, or null if it can. */
+export function shippingBlockedReason(o: { paymentMethod: string; paymentStatus: string }): string | null {
+  return needsPaymentBeforeShipping(o.paymentMethod) && o.paymentStatus !== "PAID"
+    ? "This order hasn't been paid yet. Mark the payment as paid first."
+    : null;
+}
 
 /**
  * The forward moves to offer for an order: `primary` is the next step,
@@ -110,6 +117,12 @@ export function isGateway(method: string | null | undefined): boolean {
 }
 /** TIDs are 10–12 digits today; allow a little slack (letters, 8–20 chars). */
 export const TID_RE = /^[A-Za-z0-9]{8,20}$/;
+/** One message for a missing / malformed TID, shown by checkout and the server alike. */
+export function tidError(tid: string | undefined, method: string): string | null {
+  if (!tid) return `Enter the Transaction ID (TID) from your ${PAYMENT_METHOD_LABEL[method] ?? "payment"} SMS`;
+  if (!TID_RE.test(tid)) return "A TID is 8–20 letters or digits, e.g. 01234567890";
+  return null;
+}
 export function normalizeTid(v: unknown): string {
   return String(v ?? "").replace(/[\s-]/g, "").toUpperCase();
 }

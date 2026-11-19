@@ -7,7 +7,7 @@ import { getStoreSettings } from "./settings";
 import { after } from "next/server";
 import { sendOrderEmails } from "./email";
 import { refreshCatalog } from "./cache-tags";
-import { TID_RE, isWallet, normalizeTid } from "./order-status";
+import { isWallet, needsPaymentBeforeShipping, normalizeTid, tidError } from "./order-status";
 
 
 export const checkoutSchema = z.object({
@@ -33,12 +33,8 @@ export const checkoutSchema = z.object({
     .min(1, "Your cart is empty")
     .max(50),
 }).superRefine((d, ctx) => {
-  if (!isWallet(d.paymentMethod)) return;
-  if (!d.paymentTid) {
-    ctx.addIssue({ code: "custom", path: ["paymentTid"], message: "Enter the Transaction ID (TID) of your payment" });
-  } else if (!TID_RE.test(d.paymentTid)) {
-    ctx.addIssue({ code: "custom", path: ["paymentTid"], message: "A TID is 8–20 letters or digits" });
-  }
+  const problem = isWallet(d.paymentMethod) ? tidError(d.paymentTid, d.paymentMethod) : null;
+  if (problem) ctx.addIssue({ code: "custom", path: ["paymentTid"], message: problem });
 });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
@@ -81,10 +77,9 @@ export function logOrderEvent(
 // A delivered order can't be cancelled.
 export async function cancelOrderAndRestock(
   orderId: string,
-  opts: { reason?: string; actor?: string } = {}
+  opts: { from?: string; reason?: string; actor?: string } = {}
 ): Promise<boolean> {
   const restocked = await prisma.$transaction(async (tx) => {
-    const before = await tx.order.findUnique({ where: { id: orderId }, select: { status: true } });
     const res = await tx.order.updateMany({
       where: { id: orderId, status: { notIn: ["CANCELLED", "DELIVERED"] } },
       data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: opts.reason ?? null },
@@ -93,7 +88,7 @@ export async function cancelOrderAndRestock(
     await logOrderEvent(tx, orderId, {
       type: "CANCELLED",
       actor: opts.actor ?? "system",
-      from: before?.status,
+      from: opts.from,
       to: "CANCELLED",
       note: opts.reason,
     });
@@ -125,7 +120,7 @@ export async function reopenOrder(orderId: string, actor: string): Promise<void>
     });
     if (!order) throw new ReopenError("Order not found.");
     if (order.status !== "CANCELLED") throw new ReopenError("Only a cancelled order can be reopened.");
-    if (order.paymentMethod !== "COD" && (order.paymentStatus === "FAILED" || order.paymentStatus === "REFUNDED")) {
+    if (needsPaymentBeforeShipping(order.paymentMethod) && (order.paymentStatus === "FAILED" || order.paymentStatus === "REFUNDED")) {
       throw new ReopenError(
         `This order's payment is ${order.paymentStatus.toLowerCase()}, so it can't be reopened. The customer needs to place a new order.`
       );
@@ -247,10 +242,10 @@ export async function createOrder(
               shipping,
               total,
               items: { create: lineItems },
+              events: { create: { type: "PLACED", actor: "customer", to: "PENDING" } },
             },
             select: { id: true, createdAt: true },
           });
-          await logOrderEvent(tx, created.id, { type: "PLACED", actor: "customer", to: "PENDING" });
           return created;
         });
       } catch (err) {

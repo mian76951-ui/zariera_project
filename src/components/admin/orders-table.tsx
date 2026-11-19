@@ -8,8 +8,7 @@ import type { AdminOrderRow } from "@/lib/admin-data";
 import { PAYMENT_METHOD_LABEL, needsPaymentCheck, statusLabel } from "@/lib/order-status";
 
 const TABS = ["ALL", "VERIFY", "PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
-export type OrdersTab = (typeof TABS)[number];
-type Tab = OrdersTab;
+type Tab = (typeof TABS)[number];
 
 export function OrdersTable({ orders, initialTab = "ALL" }: { orders: AdminOrderRow[]; initialTab?: Tab }) {
   const router = useRouter();

@@ -29,7 +29,7 @@ export async function GET(request: Request) {
           where: { id: o.id, paymentStatus: "PENDING" },
           data: { paymentStatus: "FAILED" },
         });
-        await cancelOrderAndRestock(o.id, { reason: "Payment cancelled by customer", actor: "customer" });
+        await cancelOrderAndRestock(o.id, { from: o.status, reason: "Payment cancelled by customer", actor: "customer" });
       }
     } catch (err) {
       console.error("[payment] cancel handling failed:", err);

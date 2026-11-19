@@ -10,20 +10,13 @@ import { formatPrice, savingsOf } from "@/lib/format";
 import { SavingsStrip } from "@/components/ui/sale-badge";
 import { shippingFor } from "@/lib/settings-shared";
 import { FieldError, StatusIcon, statusRing, type FieldStatus } from "@/components/auth/auth-field";
-import { TID_RE, normalizeTid, isWallet, type WalletMethod } from "@/lib/order-status";
+import { PAYMENT_METHOD_LABEL, normalizeTid, isWallet, tidError, type WalletMethod } from "@/lib/order-status";
+import type { WalletAccount } from "@/lib/settings-shared";
 
 type PaymentMethod = "COD" | "PAYFAST" | "SAFEPAY" | WalletMethod;
 
 /** An Easypaisa / JazzCash account the shopper can send money to. */
-export type CheckoutWallet = { method: WalletMethod; accountTitle: string; number: string };
-
-const WALLET_NAME: Record<WalletMethod, string> = { EASYPAISA: "Easypaisa", JAZZCASH: "JazzCash" };
-
-function tidError(v: string, method: WalletMethod): string | null {
-  if (!v) return `Enter the Transaction ID (TID) from your ${WALLET_NAME[method]} SMS`;
-  if (!TID_RE.test(v)) return "A TID is 8–20 letters or digits, e.g. 01234567890";
-  return null;
-}
+export type CheckoutWallet = WalletAccount & { method: WalletMethod };
 
 export type CheckoutDefaults = {
   name?: string;
@@ -72,6 +65,7 @@ export function CheckoutForm({
   const tidRef = useRef<HTMLInputElement>(null);
   const wallet = isWallet(payment) ? wallets.find((w) => w.method === payment) ?? null : null;
   const tidProblem = wallet ? tidError(tid, wallet.method) : null;
+  const showTid = tidTouched || !!tid;
   const [error, setError] = useState<string | null>(paymentNotice ? NOTICES[paymentNotice] : null);
 
 
@@ -231,7 +225,7 @@ export function CheckoutForm({
                     setPayment(v);
                     setTidTouched(false);
                   }}
-                  title={WALLET_NAME[w.method]}
+                  title={PAYMENT_METHOD_LABEL[w.method]}
                   desc="Pay in advance by mobile wallet transfer."
                   icons={<WalletChip method={w.method} />}
                   last={i === wallets.length - 1 && !gateways.PAYFAST && !gateways.SAFEPAY}
@@ -243,8 +237,8 @@ export function CheckoutForm({
                       tid={tid}
                       onTid={(v) => setTid(normalizeTid(v))}
                       onBlur={() => setTidTouched(true)}
-                      status={tid || tidTouched ? (tidProblem ? "invalid" : "valid") : "idle"}
-                      problem={tidTouched || tid ? tidProblem : null}
+                      shown={showTid}
+                      problem={showTid ? tidProblem : null}
                       inputRef={tidRef}
                     />
                   )}
@@ -436,7 +430,7 @@ function WalletPanel({
   tid,
   onTid,
   onBlur,
-  status,
+  shown,
   problem,
   inputRef,
 }: {
@@ -445,12 +439,14 @@ function WalletPanel({
   tid: string;
   onTid: (v: string) => void;
   onBlur: () => void;
-  status: FieldStatus;
+  /** The shopper has typed or left the box, so show green / red. */
+  shown: boolean;
   problem: string | null;
   inputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const [copied, setCopied] = useState(false);
-  const name = WALLET_NAME[wallet.method];
+  const name = PAYMENT_METHOD_LABEL[wallet.method];
+  const status: FieldStatus = !shown ? "idle" : problem ? "invalid" : "valid";
   async function copy() {
     try {
       await navigator.clipboard.writeText(wallet.number);

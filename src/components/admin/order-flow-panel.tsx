@@ -1,13 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import {
   cancelOrderAction,
   reopenOrderAction,
   updateOrderStatus,
-  type StatusState,
 } from "@/app/admin/(dashboard)/orders/actions";
-import { useToast } from "@/components/ui/toast";
+import { primaryBtn, useToastOn } from "@/components/admin/status-update-form";
+import { formatDate } from "@/lib/format";
 import {
   ACTION_LABEL,
   CANCEL_REASONS,
@@ -17,25 +17,15 @@ import {
   type OrderStatus,
 } from "@/lib/order-status";
 
-const primaryBtn =
-  "w-full rounded-lg bg-maroon px-4 py-2.5 text-sm font-medium text-light transition hover:bg-maroon-2 disabled:opacity-60";
 const ghostBtn =
   "rounded-lg border border-[var(--line-strong)] px-3 py-2 text-sm text-ink transition hover:border-gold hover:text-gold-deep disabled:opacity-60";
 const fieldCls =
   "w-full rounded-md border border-[var(--line-strong)] bg-cream px-3 py-2 text-sm text-ink outline-none focus:border-gold";
 
-const when = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString("en-PK", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : null;
+const when = (iso: string | null | undefined) => (iso ? formatDate(iso, { year: false, time: true }) : null);
 
-function useToastOn(state: StatusState, success: string) {
-  const toast = useToast();
-  useEffect(() => {
-    if (state.ok) toast.success(success, { title: "Saved" });
-    else if (state.error) toast.error(state.error);
-  }, [state, toast, success]);
-}
-
-/** Step-based order controls: stepper, next-step button, cancel and reopen. */
+/** Step-based order controls: stepper, next-step button, cancel and reopen.
+ *  The page renders it with key={status}, so open dialogs reset after a move. */
 export function OrderFlowPanel({
   id,
   status,
@@ -61,7 +51,6 @@ export function OrderFlowPanel({
   useToastOn(cancelState, "Order cancelled — stock returned");
   useToastOn(reopenState, "Order reopened — back to Pending");
 
-  // The page renders this with key={status}, so the open dialogs reset after a move.
 
   const cancelled = status === "CANCELLED";
   const delivered = status === "DELIVERED";
@@ -78,7 +67,7 @@ export function OrderFlowPanel({
         {ORDER_STEPS.map((step, i) => {
           const done = !cancelled && currentIdx >= i;
           const current = !cancelled && currentIdx === i;
-          const stamp = done ? when(stamps[step] ?? null) : null;
+          const stamp = done ? when(stamps[step]) : null;
           return (
             <li key={step} className="relative flex gap-3 pb-4 last:pb-0">
               {i < ORDER_STEPS.length - 1 && (
@@ -108,13 +97,13 @@ export function OrderFlowPanel({
       {/* Final states */}
       {delivered && (
         <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
-          ✓ Order complete — delivered {when(stamps.DELIVERED ?? null) ?? ""}.
+          ✓ Order complete — delivered {when(stamps.DELIVERED) ?? ""}.
         </p>
       )}
 
       {cancelled && (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-800">
-          <p className="font-medium">Cancelled {when(stamps.CANCELLED ?? null) ?? ""}</p>
+          <p className="font-medium">Cancelled {when(stamps.CANCELLED) ?? ""}</p>
           {cancelReason && <p className="mt-0.5">Reason: {cancelReason}</p>}
           <p className="mt-0.5 text-xs text-red-700/80">Items were returned to stock.</p>
           {!askReopen ? (

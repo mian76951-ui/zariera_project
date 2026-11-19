@@ -1587,3 +1587,29 @@ Owner's test feedback on the Custom form:
 - **Live checks:** `/faq` shows the COD-only payment text; `/api/health` → database ok, `tables.missing: []`; home returns 200.
 - **Owner to check live:** one admin order page (Order progress + History panels) and `/checkout` (COD only).
 - Easypaisa/JazzCash stay off. Next payment step: the client gets PayFast or Safepay merchant keys → sandbox test (see the 2026-11-19 COD-only entry).
+
+### 2026-11-19 — Cleanup pass (/simplify) on the order-flow + payments work, plus a dashboard speed fix (Claude, on `dev`)
+- **What:** `/simplify` (4 review agents: reuse, simplification, efficiency, altitude) on `f4d487f..HEAD`. Only behaviour-preserving fixes were applied: 22 files, slightly less code overall.
+- **One source of truth:**
+  - Payment-method names come from `PAYMENT_METHOD_LABEL` everywhere. The dashboard breakdown used its own `LABELS` ("PayFast (Card)") and now uses the shared one ("Card (PayFast)").
+  - The wallet lists in settings, checkout and the FAQ loop over `WALLET_METHODS` / `WALLET_SETTING_KEY`.
+  - New in `order-status.ts`: `shippingBlockedReason()` (one rule and message for the courier booking, the "Mark shipped" action and the order page) and `tidError()` (the same TID message on client and server).
+  - `useToastOn` and `primaryBtn` are exported from `status-update-form.tsx` and reused by the order-flow and payment panels.
+  - `statusLabel` is used for the payment status on the invoice, the order-status lookup and the admin selects. Dates use `formatDate`.
+- **Fewer DB round trips:**
+  - The PLACED and SHIPMENT_BOOKED events are written inside the same `order.create` / `update`.
+  - `cancelOrderAndRestock(id, { from, … })` no longer re-reads the order.
+  - Wallet "mark paid" is 1 update + 1 `createMany` (was 4 statements). COD-delivered events use `createMany`.
+  - The duplicate-TID lookup runs only after the sign-in check.
+- **Speed: the admin dashboard** used to load every order and its items to show 5 recent orders and a count. It now uses `getAdminOrders(5)` + `countOrdersToVerify()` (SQL `count`).
+- **Build:** `next build` passes. Home is static (revalidates every 5 min), the info pages are static (10 min), product pages are SSG, and shop/search/checkout/account/admin are dynamic, which is expected.
+- **Not done (future, when orders grow):**
+  - The Admin → Orders page still sends every order to the browser for client-side filtering. It needs server pagination at thousands of orders.
+  - Possibly cache the `/shop` listings.
+  - Route gateway (PayFast/Safepay) payment changes through the same event log when the gateway keys arrive.
+- **Tested** (owner's `next dev`, local DB, headless Chrome):
+  - COD order: Confirm → Packed → Shipped → Delivered, auto-paid, History shows 6 lines.
+  - Second order: cancel (stock 32→33), then reopen (33→32), with events PLACED/CANCELLED/REOPENED.
+  - Dashboard: 5 recent orders. Signed-out wallet POST: 400.
+  - Home, shop, product, FAQ and checkout (COD only): no console errors, no horizontal scroll.
+  - tsc and eslint clean. The test data was deleted and stock is back to 34. **No schema change → no Neon migration needed.**

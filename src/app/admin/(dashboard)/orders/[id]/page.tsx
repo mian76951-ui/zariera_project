@@ -7,7 +7,7 @@ import { ShipmentPanel } from "@/components/admin/shipment-panel";
 import { OrderFlowPanel } from "@/components/admin/order-flow-panel";
 import { PaymentPanel } from "@/components/admin/payment-panel";
 import { OrderTimeline } from "@/components/admin/order-timeline";
-import { needsPaymentBeforeShipping, type OrderStatus } from "@/lib/order-status";
+import { shippingBlockedReason, type OrderStatus } from "@/lib/order-status";
 import { courierLabel, trackingUrl } from "@/lib/couriers";
 import { requireAdmin } from "@/lib/admin";
 
@@ -23,20 +23,18 @@ export default async function AdminOrderDetailPage({
   const order = await getAdminOrder(id);
   if (!order) notFound();
 
-  // When each step was first reached, from the timeline (oldest wins).
-  const stamps: Partial<Record<OrderStatus, string | null>> = { PENDING: order.createdAt };
-  for (const e of [...order.events].reverse()) {
-    if ((e.type === "STATUS" || e.type === "SHIPMENT_BOOKED") && e.to && !stamps[e.to as OrderStatus]) {
-      stamps[e.to as OrderStatus] = e.createdAt;
-    }
+  // When each step was reached: the order's own columns, plus the timeline for
+  // Confirmed / Packed (events are newest first, so the last match is the first time).
+  const stamps: Partial<Record<OrderStatus, string | null>> = {
+    PENDING: order.createdAt,
+    SHIPPED: order.shippedAt,
+    DELIVERED: order.deliveredAt,
+    CANCELLED: order.cancelledAt,
+  };
+  for (const e of order.events) {
+    if (e.type === "STATUS" && (e.to === "CONFIRMED" || e.to === "PROCESSING")) stamps[e.to] = e.createdAt;
   }
-  stamps.SHIPPED ??= order.shippedAt;
-  stamps.DELIVERED = order.deliveredAt ?? stamps.DELIVERED ?? null;
-  stamps.CANCELLED = order.cancelledAt;
-  const blockedReason =
-    needsPaymentBeforeShipping(order.paymentMethod) && order.paymentStatus !== "PAID"
-      ? "Can't ship yet — this order hasn't been paid. Mark the payment as paid first."
-      : null;
+  const blockedReason = shippingBlockedReason(order);
 
   return (
     <div>

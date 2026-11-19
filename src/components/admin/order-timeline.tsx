@@ -1,4 +1,5 @@
 import { statusLabel } from "@/lib/order-status";
+import { formatDate } from "@/lib/format";
 
 type Event = {
   id: string;
@@ -53,7 +54,7 @@ export function OrderTimeline({ events, placedAt }: { events: Event[]; placedAt:
               <p className="text-ink">{describe(e)}</p>
               {e.note && <p className="text-muted">{e.note}</p>}
               <p className="text-xs text-muted">
-                {new Date(e.createdAt).toLocaleString("en-PK")} · {e.actor === "customer" ? "Customer" : e.actor === "system" ? "System" : e.actor}
+                {formatDate(e.createdAt, { time: true })} · {e.actor === "customer" ? "Customer" : e.actor === "system" ? "System" : e.actor}
               </p>
             </div>
           </li>

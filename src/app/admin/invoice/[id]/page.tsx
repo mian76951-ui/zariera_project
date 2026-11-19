@@ -6,7 +6,7 @@ import { getStoreSettings } from "@/lib/settings";
 import { formatPrice } from "@/lib/format";
 import { courierLabel } from "@/lib/couriers";
 import { PrintButton } from "@/components/admin/print-button";
-import { PAYMENT_METHOD_LABEL } from "@/lib/order-status";
+import { PAYMENT_METHOD_LABEL, statusLabel } from "@/lib/order-status";
 
 export const metadata = { title: "Invoice", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -68,7 +68,7 @@ export default async function InvoicePage({ params }: PageProps<"/admin/invoice/
           <div className="text-right">
             <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#8a6f63]">Payment</p>
             <p className="mt-1.5 font-medium">{PAYMENT_METHOD_LABEL[order.paymentMethod] ?? order.paymentMethod}</p>
-            <p>Status: {order.paymentStatus.charAt(0) + order.paymentStatus.slice(1).toLowerCase()}</p>
+            <p>Status: {statusLabel(order.paymentStatus)}</p>
             {order.paymentTid && <p>TID: {order.paymentTid}</p>}
             {order.courier && order.trackingNumber && (
               <p className="mt-2">

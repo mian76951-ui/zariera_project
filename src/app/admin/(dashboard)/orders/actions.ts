@@ -4,18 +4,20 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
 import { bookShipment, isCourier } from "@/lib/couriers";
-import { cancelOrderAndRestock, logOrderEvent, reopenOrder, ReopenError } from "@/lib/orders";
+import { cancelOrderAndRestock, reopenOrder, ReopenError } from "@/lib/orders";
 import {
   ORDER_STATUSES,
   PAYMENT_STATUSES,
   canMoveOrder,
   canMovePayment,
-  needsPaymentBeforeShipping,
+  shippingBlockedReason,
   statusLabel,
   isWallet,
   type OrderStatus,
   type PaymentStatus,
 } from "@/lib/order-status";
+
+const STALE = { error: "The order changed meanwhile. Reload and try again." };
 
 function refresh(id: string) {
   revalidatePath(`/admin/orders/${id}`);
@@ -47,9 +49,8 @@ export async function bookShipmentAction(
   if (order.status === "CANCELLED" || order.status === "DELIVERED") {
     return { error: `A ${order.status.toLowerCase()} order can't be shipped.` };
   }
-  if (needsPaymentBeforeShipping(order.paymentMethod) && order.paymentStatus !== "PAID") {
-    return { error: "This order hasn't been paid yet. Mark the payment as Paid first." };
-  }
+  const blocked = shippingBlockedReason(order);
+  if (blocked) return { error: blocked };
 
   // Claim the order first (atomic) so a double-click or a second admin can't
   // book the same parcel twice. Released again if the booking fails.
@@ -86,23 +87,23 @@ export async function bookShipmentAction(
   }
 
   try {
-    await prisma.$transaction(async (tx) => {
-      await tx.order.update({
-        where: { id },
-        data: {
-          courier,
-          trackingNumber: result.trackingNumber,
-          shippedAt: new Date(),
-          status: "SHIPPED",
+    await prisma.order.update({
+      where: { id },
+      data: {
+        courier,
+        trackingNumber: result.trackingNumber,
+        shippedAt: new Date(),
+        status: "SHIPPED",
+        events: {
+          create: {
+            type: "SHIPMENT_BOOKED",
+            actor: admin.email,
+            from: order.status,
+            to: "SHIPPED",
+            note: `${courier.toUpperCase()} · tracking ${result.trackingNumber}`,
+          },
         },
-      });
-      await logOrderEvent(tx, id, {
-        type: "SHIPMENT_BOOKED",
-        actor: admin.email,
-        from: order.status,
-        to: "SHIPPED",
-        note: `${courier.toUpperCase()} · tracking ${result.trackingNumber}`,
-      });
+      },
     });
   } catch {
     console.error(`[courier] booked ${courier} ${result.trackingNumber} for ${order.orderNumber} but could not save it`);
@@ -137,12 +138,11 @@ export async function updateOrderStatus(
       return { error: `A ${statusLabel(order.status).toLowerCase()} order can't go back to ${statusLabel(status).toLowerCase()}.` };
     }
     const shipping = status === "SHIPPED" || status === "DELIVERED";
-    if (shipping && needsPaymentBeforeShipping(order.paymentMethod) && order.paymentStatus !== "PAID") {
-      return { error: "This order hasn't been paid yet. Mark the payment as Paid first." };
-    }
+    const blocked = shipping ? shippingBlockedReason(order) : null;
+    if (blocked) return { error: blocked };
     const codCollected = status === "DELIVERED" && order.paymentMethod === "COD" && order.paymentStatus !== "PAID";
 
-    await prisma.$transaction(async (tx) => {
+    const done = await prisma.$transaction(async (tx) => {
       // Conditional on the status we validated against (no lost updates).
       const res = await tx.order.updateMany({
         where: { id, status: order.status },
@@ -153,22 +153,21 @@ export async function updateOrderStatus(
           ...(codCollected ? { paymentStatus: "PAID" as const } : {}),
         },
       });
-      if (res.count !== 1) throw new Error("STALE");
-      await logOrderEvent(tx, id, { type: "STATUS", actor: admin.email, from: order.status, to: status });
-      if (codCollected) {
-        await logOrderEvent(tx, id, {
-          type: "PAYMENT",
-          actor: admin.email,
-          from: order.paymentStatus,
-          to: "PAID",
-          note: "Cash collected on delivery",
-        });
-      }
+      if (res.count !== 1) return false;
+      await tx.orderEvent.createMany({
+        data: [
+          { orderId: id, type: "STATUS", actor: admin.email, from: order.status, to: status },
+          ...(codCollected
+            ? [{ orderId: id, type: "PAYMENT", actor: admin.email, from: order.paymentStatus, to: "PAID", note: "Cash collected on delivery" }]
+            : []),
+        ],
+      });
+      return true;
     });
+    if (!done) return STALE;
     refresh(id);
     return { ok: true };
-  } catch (err) {
-    if (err instanceof Error && err.message === "STALE") return { error: "The order changed meanwhile. Reload and try again." };
+  } catch {
     return { error: "Could not update. Database unavailable." };
   }
 }
@@ -185,8 +184,8 @@ export async function cancelOrderAction(id: string, _prev: StatusState, formData
     if (!order) return { error: "Order not found." };
     if (order.status === "CANCELLED") return { ok: true };
     if (order.status === "DELIVERED") return { error: "A delivered order can't be cancelled." };
-    const done = await cancelOrderAndRestock(id, { reason, actor: admin.email });
-    if (!done) return { error: "The order changed meanwhile. Reload and try again." };
+    const done = await cancelOrderAndRestock(id, { from: order.status, reason, actor: admin.email });
+    if (!done) return STALE;
     refresh(id);
     return { ok: true };
   } catch {
@@ -195,8 +194,7 @@ export async function cancelOrderAction(id: string, _prev: StatusState, formData
 }
 
 /** Brings a cancelled order back to Pending (takes the stock out again). */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- useActionState signature
-export async function reopenOrderAction(id: string, _prev: StatusState, _fd: FormData): Promise<StatusState> {
+export async function reopenOrderAction(id: string): Promise<StatusState> {
   const admin = await requireAdmin();
   try {
     await reopenOrder(id, admin.email);
@@ -229,31 +227,33 @@ export async function updatePaymentStatus(
       };
     }
     // A verified Easypaisa / JazzCash payment also confirms a pending order.
-    const confirm = paymentStatus === "PAID" && isWallet(order.paymentMethod) && order.status === "PENDING";
-    await prisma.$transaction(async (tx) => {
+    const tidVerified = paymentStatus === "PAID" && isWallet(order.paymentMethod);
+    const confirm = tidVerified && order.status === "PENDING";
+    const done = await prisma.$transaction(async (tx) => {
       const res = await tx.order.updateMany({
-        where: { id, paymentStatus: order.paymentStatus },
-        data: { paymentStatus },
+        where: { id, paymentStatus: order.paymentStatus, ...(confirm ? { status: "PENDING" as const } : {}) },
+        data: { paymentStatus, ...(confirm ? { status: "CONFIRMED" as const } : {}) },
       });
-      if (res.count !== 1) throw new Error("STALE");
-      await logOrderEvent(tx, id, {
-        type: "PAYMENT",
-        actor: admin.email,
-        from: order.paymentStatus,
-        to: paymentStatus,
-        note: isWallet(order.paymentMethod) && paymentStatus === "PAID" ? "TID verified" : null,
+      if (res.count !== 1) return false;
+      await tx.orderEvent.createMany({
+        data: [
+          {
+            orderId: id,
+            type: "PAYMENT",
+            actor: admin.email,
+            from: order.paymentStatus,
+            to: paymentStatus,
+            note: tidVerified ? "TID verified" : null,
+          },
+          ...(confirm ? [{ orderId: id, type: "STATUS", actor: admin.email, from: "PENDING", to: "CONFIRMED" }] : []),
+        ],
       });
-      if (confirm) {
-        const c = await tx.order.updateMany({ where: { id, status: "PENDING" }, data: { status: "CONFIRMED" } });
-        if (c.count === 1) {
-          await logOrderEvent(tx, id, { type: "STATUS", actor: admin.email, from: "PENDING", to: "CONFIRMED" });
-        }
-      }
+      return true;
     });
+    if (!done) return STALE;
     refresh(id);
     return { ok: true };
-  } catch (err) {
-    if (err instanceof Error && err.message === "STALE") return { error: "The order changed meanwhile. Reload and try again." };
+  } catch {
     return { error: "Could not update. Database unavailable." };
   }
 }

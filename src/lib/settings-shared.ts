@@ -45,8 +45,6 @@ export type WalletAccount = {
   number: string;
 };
 
-export type WalletKey = keyof StoreSettings["payments"];
-
 /** A wallet appears at checkout only when it is switched on and has a number. */
 export function walletReady(w: WalletAccount | undefined): boolean {
   return Boolean(w?.enabled && w.number && w.accountTitle);
