@@ -1565,3 +1565,16 @@ Owner's test feedback on the Custom form:
   - Success page: a clock icon, **"Payment verification pending"**, the TID, "not confirmed yet… cancelled if not found". Payment line: "Easypaisa · On hold".
   - Admin: a dashboard banner "N orders waiting for payment check → Check now" (`/admin/orders?tab=verify`), a **Verify payment** tab (amber count) and stat on Orders. Helper `needsPaymentCheck()` in `order-status.ts`.
 - **Tested** (headless Chrome, owner's `next dev`, local DB): the notice and button text at 390px; a TID "12345678" goes to the on-hold success page; the dashboard banner shows 1; the Verify tab lists 1 order. No horizontal scroll. tsc and eslint are clean. The test order and customer were deleted, stock is back to 34, and wallet settings are back to off/blank.
+
+### 2026-11-19 — Launch COD-only; payment text follows what is switched on (Claude, on `dev`)
+- **Owner decision:** launch with **COD only**. The manual Easypaisa/JazzCash TID flow doesn't scale (an admin would have to check every TID by hand). The client will apply for a **PayFast or Safepay** merchant account (card + Easypaisa + JazzCash, confirmed automatically). Fees are the client's concern.
+- Easypaisa/JazzCash stay **off** in Admin → Settings → Payments (Neon has no `payments` setting, so the default is off). The code stays as a fallback.
+- **Text fixes:**
+  - The FAQ payment answers are now built from what is really on (gateway keys → card/Easypaisa/JazzCash; wallets on → TID wording; otherwise "COD… online options will appear at checkout when available").
+  - The support-chat quick answer no longer promises PayFast/Safepay.
+- **PayFast/Safepay status:** the code is in `lib/payments.ts` with callbacks under `api/payments/*`. It was written from public docs and has **never been tested against a sandbox**. When the keys arrive:
+  1. Set `PAYFAST_MERCHANT_ID` + `PAYFAST_SECURED_KEY` (or `SAFEPAY_API_KEY` + `SAFEPAY_WEBHOOK_SECRET`), in sandbox first.
+  2. Check the field names and the hash/signature formulas against the merchant's docs.
+  3. Run one sandbox payment end to end: redirect → callback marks PAID and Confirmed; cancel restocks.
+  4. Then leave the manual wallets off.
+- **Tested:** `/faq` with the wallets off shows the COD-only text (no "Easypaisa"). tsc and eslint are clean.

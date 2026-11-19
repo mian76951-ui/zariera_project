@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Emblem } from "@/components/brand/emblem";
 import { getStoreSettings } from "@/lib/settings";
+import { walletReady, type StoreSettings } from "@/lib/settings-shared";
+import { payfastConfigured, safepayConfigured } from "@/lib/payments";
 import { AccordionItem } from "@/components/ui/accordion-item";
 
 export const metadata: Metadata = {
@@ -10,14 +12,39 @@ export const metadata: Metadata = {
   description: "Answers to common questions about ordering, payment, shipping and returns at ZARIERA.",
 };
 
-const faqs = (DELIVERY_TIME: string) => [
+// Only mention payment options that are actually switched on right now.
+function paymentAnswers(s: StoreSettings): { order: string; methods: string } {
+  if (payfastConfigured() || safepayConfigured()) {
+    return {
+      order: "Browse the collection, add pieces to your bag, and check out. You can pay Cash on Delivery, or pay securely online by card, Easypaisa or JazzCash.",
+      methods: "Cash on Delivery (COD) across Pakistan, and secure online payment by card, Easypaisa or JazzCash at checkout.",
+    };
+  }
+  const wallets = [
+    walletReady(s.payments.easypaisa) && "Easypaisa",
+    walletReady(s.payments.jazzcash) && "JazzCash",
+  ].filter(Boolean) as string[];
+  if (wallets.length) {
+    const w = wallets.join(" or ");
+    return {
+      order: `Browse the collection, add pieces to your bag, and check out. You can pay Cash on Delivery, or pay in advance with ${w}.`,
+      methods: `Cash on Delivery (COD) across Pakistan, and ${w}: send the amount to our account at checkout and enter the Transaction ID (TID). We confirm your order once the payment is verified.`,
+    };
+  }
+  return {
+    order: "Browse the collection, add pieces to your bag, and check out. You pay Cash on Delivery — no advance needed.",
+    methods: "Cash on Delivery (COD) across Pakistan. Online payment options will appear at checkout when available.",
+  };
+}
+
+const faqs = (DELIVERY_TIME: string, pay: { order: string; methods: string }) => [
   {
     q: "How do I place an order?",
-    a: "Browse the collection, add pieces to your bag, and check out. You can pay Cash on Delivery, or pay in advance with Easypaisa or JazzCash.",
+    a: pay.order,
   },
   {
     q: "What payment methods do you accept?",
-    a: "Cash on Delivery (COD) across Pakistan, and Easypaisa or JazzCash: send the amount to our account at checkout and enter the Transaction ID (TID). We confirm your order once the payment is verified.",
+    a: pay.methods,
   },
   {
     q: "How long does delivery take?",
@@ -42,7 +69,8 @@ const faqs = (DELIVERY_TIME: string) => [
 ];
 
 export default async function FaqPage() {
-  const FAQS = faqs((await getStoreSettings()).shipping.deliveryTime);
+  const settings = await getStoreSettings();
+  const FAQS = faqs(settings.shipping.deliveryTime, paymentAnswers(settings));
   return (
     <div className="mx-auto max-w-3xl px-5 py-16">
       <div className="text-center">

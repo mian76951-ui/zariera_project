@@ -53,7 +53,7 @@ function buildFaqs(st: StoreSettings): Faq[] {
     label: "💵 Payment & COD",
     keywords: ["payment", "cod", "cash on delivery", "cash", "card", "pay", "online", "paisa", "advance"],
     answer:
-      "You can pay with Cash on Delivery (COD) or securely online by card/wallet (PayFast & Safepay). No advance needed for COD.",
+      "You can pay with Cash on Delivery (COD) nationwide — no advance needed. Any online options (card, Easypaisa, JazzCash) that are available are shown at checkout.",
   },
   {
     id: "returns",
