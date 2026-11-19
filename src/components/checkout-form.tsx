@@ -336,7 +336,7 @@ export function CheckoutForm({
               disabled={submitting}
               className="mt-6 block w-full rounded-full bg-gradient-to-r from-gold-hi to-gold px-8 py-3.5 text-center text-sm font-semibold uppercase tracking-[0.1em] text-maroon transition hover:opacity-90 disabled:opacity-60"
             >
-              {submitting ? "Placing order…" : "Complete Order"}
+              {submitting ? "Placing order…" : wallet ? "Submit for payment check" : "Complete Order"}
             </button>
             <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-muted">
               <LockIcon /> Secure &amp; encrypted checkout · ZARIERA
@@ -488,12 +488,19 @@ function WalletPanel({
           </div>
         </dl>
       </div>
+      <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p className="font-semibold">Your order will be on hold until we receive the payment</p>
+        <p className="mt-0.5 text-amber-800">
+          We check every Transaction ID in our {name} account. Your order is confirmed and shipped only after the payment
+          shows up there. Orders with a wrong TID are cancelled.
+        </p>
+      </div>
       <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
         <li>
           Open your {name} app and send <strong className="text-ink">{formatPrice(total)}</strong> to the number above.
         </li>
         <li>Copy the Transaction ID (TID) from the confirmation SMS.</li>
-        <li>Enter it below and complete your order. We&apos;ll confirm once we verify it.</li>
+        <li>Enter it below and submit. We&apos;ll confirm your order once we find the payment.</li>
       </ol>
       <div>
         <label htmlFor="co-tid" className={labelCls}>

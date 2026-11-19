@@ -67,16 +67,27 @@ export default async function SuccessPage({
   return (
     <div className="mx-auto max-w-2xl px-5 py-24 text-center">
       <ClearCart productIds={order.productIds} />
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-gold-hi to-gold">
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#260810" strokeWidth="2.6">
-          <path d="M5 12l5 5L20 6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </div>
+      {walletPending ? (
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 ring-4 ring-amber-200">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+        </div>
+      ) : (
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-gold-hi to-gold">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#260810" strokeWidth="2.6">
+            <path d="M5 12l5 5L20 6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      )}
 
-      <h1 className="mt-8 font-serif text-4xl font-semibold text-ink">Thank you!</h1>
+      <h1 className="mt-8 font-serif text-4xl font-semibold text-ink">
+        {walletPending ? "Payment verification pending" : "Thank you!"}
+      </h1>
       <p className="mt-3 text-muted">
         {walletPending
-          ? `Your order has been received. We're verifying your ${walletName} payment and will email you as soon as it's confirmed.`
+          ? `Your order is on hold. It is not confirmed yet: we'll check Transaction ID ${order.paymentTid ?? ""} in our ${walletName} account and confirm your order by email once the payment is found. If the payment isn't found, the order will be cancelled.`
           : awaitingPayment
           ? "Your order has been received. We're confirming your payment with the provider — you'll get an email as soon as it's confirmed."
           : "Your order has been placed. A confirmation will be sent to your email."}
@@ -101,7 +112,7 @@ export default async function SuccessPage({
               : wallet
                 ? order.paymentStatus === "PAID"
                   ? `Paid · ${walletName}`
-                  : `${walletName} · Verifying`
+                  : `${walletName} · On hold`
                 : "Cash on Delivery"}
           </span>
         </div>

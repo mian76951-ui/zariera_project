@@ -3,19 +3,22 @@ import { formatPrice } from "@/lib/format";
 import { DbBanner } from "@/components/admin/db-banner";
 import { OrdersTable } from "@/components/admin/orders-table";
 import { requireAdmin } from "@/lib/admin";
+import { needsPaymentCheck } from "@/lib/order-status";
 
 export const metadata = { title: "Orders" };
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminOrdersPage() {
+export default async function AdminOrdersPage({ searchParams }: PageProps<"/admin/orders">) {
   await requireAdmin(); // layouts don't re-run on client navigation
+  const sp = await searchParams;
   const { dbConnected, orders } = await getAdminOrders();
 
   const revenue = orders
     .filter((o) => o.status !== "CANCELLED")
     .reduce((s, o) => s + o.total, 0);
   const pending = orders.filter((o) => o.status === "PENDING").length;
+  const toVerify = orders.filter(needsPaymentCheck).length;
 
   return (
     <div>
@@ -53,13 +56,14 @@ export default async function AdminOrdersPage() {
         ) : (
           <>
             {/* Quick stats */}
-            <div className="mb-5 grid gap-4 sm:grid-cols-3">
+            <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <MiniStat label="Total orders" value={String(orders.length)} />
               <MiniStat label="Pending" value={String(pending)} accent />
+              <MiniStat label="Verify payment" value={String(toVerify)} accent={toVerify > 0} />
               <MiniStat label="Revenue" value={formatPrice(revenue)} />
             </div>
 
-            <OrdersTable orders={orders} />
+            <OrdersTable orders={orders} initialTab={sp.tab === "verify" ? "VERIFY" : "ALL"} />
           </>
         )}
       </div>

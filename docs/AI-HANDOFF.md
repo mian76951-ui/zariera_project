@@ -1556,3 +1556,12 @@ Owner's test feedback on the Custom form:
   - The test orders and customer were deleted, product stock was restored to 34, and wallet settings were set back to off/blank.
   - tsc and eslint are clean. `next build` was not run (the owner's dev server was using `.next`).
 
+
+### 2026-11-19 — Easypaisa/JazzCash: "on hold" wording + admin "Verify payment" (Claude, on `dev`)
+- **Owner feedback:** any made-up TID placed an order and showed "Thank you!", which looked like a finished order.
+- **Why it accepts any TID:** without a merchant account there is no API to check a TID. The admin checks it in the wallet app. Real automatic checks need a merchant account (PayFast code is ready for keys). The owner chose clearer messaging for now.
+- **Changes:**
+  - Checkout: an amber "Your order will be on hold until we receive the payment… wrong TID orders are cancelled" box. The button reads **"Submit for payment check"**.
+  - Success page: a clock icon, **"Payment verification pending"**, the TID, "not confirmed yet… cancelled if not found". Payment line: "Easypaisa · On hold".
+  - Admin: a dashboard banner "N orders waiting for payment check → Check now" (`/admin/orders?tab=verify`), a **Verify payment** tab (amber count) and stat on Orders. Helper `needsPaymentCheck()` in `order-status.ts`.
+- **Tested** (headless Chrome, owner's `next dev`, local DB): the notice and button text at 390px; a TID "12345678" goes to the on-hold success page; the dashboard banner shows 1; the Verify tab lists 1 order. No horizontal scroll. tsc and eslint are clean. The test order and customer were deleted, stock is back to 34, and wallet settings are back to off/blank.

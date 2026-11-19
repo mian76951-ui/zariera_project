@@ -100,6 +100,10 @@ export type WalletMethod = (typeof WALLET_METHODS)[number];
 export function isWallet(method: string | null | undefined): method is WalletMethod {
   return (WALLET_METHODS as readonly string[]).includes(method ?? "");
 }
+/** Easypaisa / JazzCash order whose TID an admin still has to check. */
+export function needsPaymentCheck(o: { paymentMethod: string; paymentStatus: string; status: string }): boolean {
+  return isWallet(o.paymentMethod) && o.paymentStatus === "PENDING" && o.status !== "CANCELLED";
+}
 /** Gateway methods are confirmed by PayFast / Safepay callbacks, never by hand. */
 export function isGateway(method: string | null | undefined): boolean {
   return method === "PAYFAST" || method === "SAFEPAY";

@@ -5,26 +5,30 @@ import { useRouter } from "next/navigation";
 import { formatPrice, formatDate } from "@/lib/format";
 import { StatusBadge } from "@/components/status-badge";
 import type { AdminOrderRow } from "@/lib/admin-data";
-import { PAYMENT_METHOD_LABEL, statusLabel } from "@/lib/order-status";
+import { PAYMENT_METHOD_LABEL, needsPaymentCheck, statusLabel } from "@/lib/order-status";
 
-const TABS = ["ALL", "PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
-type Tab = (typeof TABS)[number];
+const TABS = ["ALL", "VERIFY", "PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
+export type OrdersTab = (typeof TABS)[number];
+type Tab = OrdersTab;
 
-export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
+export function OrdersTable({ orders, initialTab = "ALL" }: { orders: AdminOrderRow[]; initialTab?: Tab }) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("ALL");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [q, setQ] = useState("");
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { ALL: orders.length };
-    for (const o of orders) c[o.status] = (c[o.status] ?? 0) + 1;
+    for (const o of orders) {
+      c[o.status] = (c[o.status] ?? 0) + 1;
+      if (needsPaymentCheck(o)) c.VERIFY = (c.VERIFY ?? 0) + 1;
+    }
     return c;
   }, [orders]);
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
     return orders.filter((o) => {
-      if (tab !== "ALL" && o.status !== tab) return false;
+      if (tab === "VERIFY" ? !needsPaymentCheck(o) : tab !== "ALL" && o.status !== tab) return false;
       if (query && !(`${o.orderNumber} ${o.customerName}`.toLowerCase().includes(query))) return false;
       return true;
     });
@@ -63,8 +67,12 @@ export function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
                 active ? "bg-maroon text-light" : "text-muted hover:bg-cream-soft hover:text-ink"
               }`}
             >
-              {t === "ALL" ? "All" : statusLabel(t)}
-              <span className={`rounded-full px-1.5 text-[0.62rem] ${active ? "bg-light/20 text-light" : "bg-cream-soft text-muted"}`}>
+              {t === "ALL" ? "All" : t === "VERIFY" ? "Verify payment" : statusLabel(t)}
+              <span
+                className={`rounded-full px-1.5 text-[0.62rem] ${
+                  active ? "bg-light/20 text-light" : t === "VERIFY" && n > 0 ? "bg-amber-500 text-white" : "bg-cream-soft text-muted"
+                }`}
+              >
                 {n}
               </span>
             </button>

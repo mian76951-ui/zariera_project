@@ -6,6 +6,7 @@ import { DbBanner } from "@/components/admin/db-banner";
 import { StatusBadge } from "@/components/status-badge";
 import { requireAdmin } from "@/lib/admin";
 import { TagIcon } from "@/components/icons";
+import { needsPaymentCheck } from "@/lib/order-status";
 
 export const metadata = { title: { absolute: "Dashboard · ZARIERA Admin" } };
 
@@ -21,6 +22,7 @@ export default async function AdminDashboard() {
   ]);
   const LOW = settings.inventory.lowStockThreshold;
   const recentOrders = ordersData.orders.slice(0, 5);
+  const toVerify = ordersData.orders.filter(needsPaymentCheck).length;
   const lowStockProducts = productsData.products
     .filter((p) => p.stock <= LOW)
     .sort((a, b) => a.stock - b.stock)
@@ -63,6 +65,23 @@ export default async function AdminDashboard() {
 
       <div className="mt-8">
         {!stats.dbConnected && <DbBanner />}
+
+        {toVerify > 0 && (
+          <Link
+            href="/admin/orders?tab=verify"
+            className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-5 py-4 text-amber-900 transition hover:border-amber-400"
+          >
+            <span>
+              <b>
+                {toVerify} order{toVerify === 1 ? "" : "s"} waiting for payment check
+              </b>
+              <span className="block text-sm text-amber-800">
+                Easypaisa / JazzCash orders are on hold until you find the TID in your wallet app and mark them paid.
+              </span>
+            </span>
+            <span className="rounded-full bg-amber-600 px-4 py-1.5 text-sm font-medium text-white">Check now →</span>
+          </Link>
+        )}
 
         {/* Stat cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
